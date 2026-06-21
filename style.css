@@ -33,6 +33,7 @@ body { margin: 0; font-family: -apple-system, "Malgun Gothic", sans-serif; backg
 .tab-content { display: none; width: 100%; }
 .tab-content.active { display: block; }
 .input-form { background: var(--card); padding: 15px; border-radius: var(--radius); border: 1px solid var(--line); margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; }
+.fixed-options{display:flex; gap:10px;}
 .kakao-input-mini { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 2px 5px; font-size: 11px; color: var(--txt1); margin-left: 5px; }
 .fixed-options { display: flex; align-items: center; }
 .row { display: flex; gap: 8px; }
