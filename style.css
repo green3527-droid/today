@@ -37,7 +37,7 @@ body { margin: 0; font-family: -apple-system, "Malgun Gothic", sans-serif; backg
 .kakao-input-mini { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 2px 5px; font-size: 11px; color: var(--txt1); margin-left: 5px; }
 .fixed-options { display: flex; align-items: center; gap:10px;}
 .row { display: flex; gap: 8px; }
-.row-sub { display: flex; justify-content: space-between; align-items: center; }
+.row-sub { display: flex; justify-content: space-between; align-items: center; gap:10px; }
 .check-label { font-size: 11px; color: var(--txt2); display: flex; align-items: center; gap: 5px; cursor: pointer; }
 .kakao-input { flex: 1; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 13px; color: var(--txt1); }
 .cat-select { appearance: none; padding-right: 25px; background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="gray" stroke-width="3"><path d="M6 9l6 6 6-6"/></svg>'); background-repeat: no-repeat; background-position: right 10px center; }
