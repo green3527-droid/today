@@ -3,20 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kakao Smart Sync</title>
+    <title>Kakao Daily Manager</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Firebase SDK (실시간 데이터 공유 엔진) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <style>
+        /* 추가된 스타일: 고정지출 선택용 미니 셀렉트박스 */
+        .kakao-input-mini { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 2px 5px; font-size: 11px; color: var(--txt1); margin-left: 5px; }
+        .fixed-options { display: flex; align-items: center; }
+    </style>
 </head>
 <body>
     <div class="mobile-container">
-        <!-- 실시간 동기화 설정바 -->
-        <div id="sync-banner" class="sync-bar">
-            <input type="text" id="sync-key" placeholder="공유 아이디 입력 (모든 기기 공통)" title="동일한 아이디를 입력하면 데이터가 연동됩니다.">
-            <button onclick="initSync()">연동</button>
-        </div>
-
+        <!-- 헤더 영역 -->
         <header class="app-header">
             <div class="header-left"><h1 class="logo">My Daily</h1></div>
             <div class="header-right">
@@ -25,8 +22,10 @@
             </div>
         </header>
 
+        <!-- 주간 달력 스트립 (일~토) -->
         <div id="day-strip" class="day-strip"></div>
 
+        <!-- 네비게이션 (날짜 선택 및 오늘 버튼) -->
         <nav class="week-nav">
             <button onclick="moveDay(-1)" class="nav-arrow">〈</button>
             <div class="nav-center">
@@ -36,46 +35,55 @@
             <button onclick="moveDay(1)" class="nav-arrow">〉</button>
         </nav>
 
+        <!-- 오늘의 한마디 (상속형 메모) -->
         <section class="daily-msg-section" onclick="editDailyMsg()">
-            <div class="msg-box"><span class="msg-icon">💬</span><p id="daily-msg-text">로그인하여 동기화를 시작하세요.</p></div>
+            <div class="msg-box"><span class="msg-icon">💬</span><p id="daily-msg-text">한마디를 입력해주세요.</p></div>
         </section>
 
+        <!-- 일일 요약 지표 -->
         <section class="day-summary">
             <div class="sum-box"><span class="label">이 날의 지출</span><span class="val" id="day-expense">0</span></div>
             <div class="sum-box"><span class="label">남은 할일</span><span class="val" id="day-todo-count">0</span></div>
         </section>
 
+        <!-- 메인 탭 메뉴 -->
         <div class="main-tabs">
             <button class="m-tab active" onclick="switchTab('acc')">💰 가계부</button>
             <button class="m-tab" onclick="switchTab('todo')">✅ 할 일</button>
         </div>
 
         <main class="content">
+            <!-- 가계부 입력 (2줄 구조) -->
             <div id="section-acc" class="tab-content active">
                 <div class="input-form">
                     <div class="row">
                         <select id="acc-cat" class="kakao-input cat-select" style="flex:0.4"><option value="식비">🍔 식비</option><option value="교통비">🚌 교통비</option><option value="문화비">🎬 문화비</option><option value="쇼핑">🛍️ 쇼핑</option><option value="기타">✨ 기타</option></select>
                         <input type="number" id="acc-amount" class="kakao-input" placeholder="금액" style="flex:0.6">
                     </div>
-                    <div class="row"><input type="text" id="acc-desc" class="kakao-input" placeholder="내역을 입력하세요" style="flex:1"></div>
+                    <div class="row"><input type="text" id="acc-desc" class="kakao-input" placeholder="상세 내역을 입력하세요" style="flex:1"></div>
                     <div class="row-sub">
                         <div class="fixed-options">
                             <label class="check-label"><input type="checkbox" id="acc-fixed"> 고정지출</label>
-                            <select id="acc-fixed-period" class="kakao-input-mini"><option value="every">매일</option><option value="weekday">월~금</option></select>
+                            <select id="acc-fixed-period" class="kakao-input-mini">
+                                <option value="every">매일</option>
+                                <option value="weekday">월~금</option>
+                            </select>
                         </div>
                         <button onclick="addDailyEntry()" class="btn-add">등록</button>
                     </div>
                 </div>
                 <ul id="acc-list" class="kakao-list"></ul>
             </div>
+
+            <!-- 할 일 입력 -->
             <div id="section-todo" class="tab-content">
                 <div class="input-form">
                     <div class="row">
                         <input type="time" id="todo-time" class="kakao-input" style="flex:0.3" value="09:00">
-                        <input type="text" id="todo-input" class="kakao-input" placeholder="오늘 할 일 입력" style="flex:0.7">
+                        <input type="text" id="todo-input" class="kakao-input" placeholder="할 일 입력" style="flex:0.7">
                     </div>
                     <div class="row-sub">
-                        <label class="check-label"><input type="checkbox" id="todo-repeat"> 모든 날짜 반복</label>
+                        <label class="check-label"><input type="checkbox" id="todo-repeat"> 모든 날짜 반복일정</label>
                         <button onclick="addDailyTodo()" class="btn-add">등록</button>
                     </div>
                 </div>
@@ -84,18 +92,10 @@
         </main>
     </div>
 
+    <!-- 리포트 모달 -->
     <div id="report-modal" class="modal"><div class="modal-content"><h3>소비 리포트</h3><div id="report-weekly-body"></div><div class="report-month-box" id="report-monthly-body"></div><button onclick="closeModal()" class="btn-close">닫기</button></div></div>
 
     <script>
-        /** Firebase 설정 (데이터 공유용) **/
-        const firebaseConfig = { 
-            apiKey: "AIzaSyAs-DEMO-KEY", 
-            databaseURL: "https://kakao-sync-demo.firebaseio.com", // 실제 사용시 본인 URL로 교체 가능
-            projectId: "kakao-sync-demo" 
-        };
-        let database; 
-        try { firebase.initializeApp(firebaseConfig); database = firebase.database(); } catch(e) { console.log("Firebase Offline"); }
-
         const toDateKey = (date) => {
             const y = date.getFullYear();
             const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -103,33 +103,24 @@
             return `${y}-${m}-${d}`;
         };
 
-        let db = {}; let fixedAcc = []; let fixedTodo = [];
+        let db = JSON.parse(localStorage.getItem('kakao_db_v14')) || {};
+        let fixedAcc = JSON.parse(localStorage.getItem('kakao_fix_acc')) || [];
+        let fixedTodo = JSON.parse(localStorage.getItem('kakao_fix_todo')) || [];
         const realToday = toDateKey(new Date());
         let selectedDate = realToday;
-        let userId = localStorage.getItem('kakao_user_id') || "";
 
-        window.onload = () => { if(userId) { document.getElementById('sync-key').value = userId; initSync(); } render(); };
+        window.onload = () => { render(); };
 
-        /** 동기화 엔진 **/
-        function initSync() {
-            userId = document.getElementById('sync-key').value.trim();
-            if(!userId) { alert("아이디를 입력해주세요."); return; }
-            localStorage.setItem('kakao_user_id', userId);
-            if(database) {
-                // 클라우드에서 데이터 실시간 감시 (기기 간 연동 핵심)
-                database.ref('users/' + userId).on('value', (snapshot) => {
-                    const data = snapshot.val() || {};
-                    db = data.db || {}; fixedAcc = data.fixedAcc || []; fixedTodo = data.fixedTodo || [];
-                    render();
-                });
-            }
+        function save() {
+            localStorage.setItem('kakao_db_v14', JSON.stringify(db));
+            localStorage.setItem('kakao_fix_acc', JSON.stringify(fixedAcc));
+            localStorage.setItem('kakao_fix_todo', JSON.stringify(fixedTodo));
         }
-        function push() { if(database && userId) database.ref('users/' + userId).set({ db, fixedAcc, fixedTodo }); }
 
         function getEffectiveMsg(dateStr) {
             if (db[dateStr] && db[dateStr].msg) return db[dateStr].msg;
-            const dates = Object.keys(db).filter(d => d < dateStr && db[d].msg).sort().reverse();
-            return dates.length > 0 ? db[dates[0]].msg : "오늘의 한마디를 입력해보세요.";
+            const pastDates = Object.keys(db).filter(d => d < dateStr && db[d].msg).sort().reverse();
+            return pastDates.length > 0 ? db[pastDates[0]].msg : "오늘의 한마디를 입력해보세요.";
         }
 
         function render() {
@@ -139,39 +130,70 @@
             document.getElementById('daily-msg-text').innerText = getEffectiveMsg(selectedDate);
             renderDayStrip();
             
+            // 1. 가계부 렌더링 (오름차순)
+            const accList = document.getElementById('acc-list'); accList.innerHTML = '';
+            let dayTotal = 0;
+            
+            // 현재 선택된 날짜의 요일 확인 (0:일, 1:월, 2:화, 3:수, 4:목, 5:금, 6:토)
             const dayOfWeek = new Date(selectedDate).getDay();
             const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
 
-            // 가계부 (오름차순)
-            const accList = document.getElementById('acc-list'); accList.innerHTML = '';
-            let dayTotal = 0;
-            const activeFixed = fixedAcc.filter(f => f.fixedPeriod === 'weekday' ? isWeekday : true);
-            const sortedAcc = [...activeFixed, ...(db[selectedDate].acc || [])].sort((a,b) => a.id - b.id);
+            // 고정 지출 중 현재 날짜에 해당되는 것만 필터링
+            const activeFixedAcc = fixedAcc.filter(item => {
+                if (item.fixedPeriod === 'weekday') return isWeekday;
+                return true; // 'every'인 경우
+            });
+
+            const sortedAcc = [...activeFixedAcc, ...db[selectedDate].acc].sort((a,b) => a.id - b.id);
             sortedAcc.forEach((i) => {
                 dayTotal += i.amount;
-                accList.innerHTML += `<li class="list-item"><div class="item-info"><small>${i.category} ${i.isFixed ? (i.fixedPeriod==='weekday'?'(월~금)':'(고정)') : ''}</small><div class="name">${i.desc}</div></div><div class="amount-area"><span>${i.amount.toLocaleString()}원</span><button class="btn-icon-del" onclick="removeAcc(${i.isFixed}, ${i.id})">🗑️</button></div></li>`;
+                const li = document.createElement('li'); li.className = 'list-item';
+                const periodLabel = i.fixedPeriod === 'weekday' ? '(월~금)' : '(고정)';
+                li.innerHTML = `<div class="item-info"><small>${i.category} ${i.isFixed ? periodLabel : ''}</small><div class="name">${i.desc}</div></div><div class="amount-area"><span>${i.amount.toLocaleString()}원</span><button class="btn-icon-del" onclick="removeAcc(${i.isFixed}, ${i.id})">🗑️</button></div>`;
+                accList.appendChild(li);
             });
             document.getElementById('day-expense').innerText = dayTotal.toLocaleString() + "원";
 
-            // 할 일 (최신 등록 상단)
+            // 2. 할 일 렌더링
             const todoList = document.getElementById('todo-list'); todoList.innerHTML = '';
-            const sortedTodo = [...fixedTodo, ...(db[selectedDate].todo || [])].sort((a,b) => b.id - a.id);
+            const sortedTodo = [...fixedTodo, ...db[selectedDate].todo].sort((a,b) => a.time.localeCompare(b.time) || a.id - b.id);
             let pendingCount = 0;
             sortedTodo.forEach((t) => {
-                const isDone = (db[selectedDate].done || []).includes(String(t.id));
+                const isDone = db[selectedDate].done.includes(String(t.id));
                 if(!isDone) pendingCount++;
+                const li = document.createElement('li'); li.className = `list-item ${isDone ? 'done' : ''}`;
                 const delBtn = isActualToday ? `<button class="btn-icon-del" onclick="removeTodo(${t.isFixed}, ${t.id})">🗑️</button>` : '';
-                todoList.innerHTML += `<li class="list-item ${isDone ? 'done' : ''}"><div class="todo-item" onclick="toggleTodo('${t.id}')"><div class="t-icon"></div><div class="item-info"><small>${t.time} ${t.isFixed?'(반복)':''}</small><div class="name">${t.text}</div></div></div>${delBtn}</li>`;
+                li.innerHTML = `<div class="todo-item" onclick="toggleTodo('${t.id}')"><div class="t-icon"></div><div class="item-info"><small>${t.time} ${t.isFixed?'(반복)':''}</small><div class="name">${t.text}</div></div></div>${delBtn}`;
+                todoList.appendChild(li);
             });
             document.getElementById('day-todo-count').innerText = pendingCount + "개";
         }
 
+        function renderDayStrip() {
+            const strip = document.getElementById('day-strip'); strip.innerHTML = '';
+            let d = new Date(selectedDate); d.setDate(d.getDate() - d.getDay());
+            for(let i=0; i<7; i++) {
+                const dK = toDateKey(d);
+                const item = document.createElement('div');
+                item.className = `strip-item ${dK === selectedDate ? 'active' : ''}`;
+                item.innerHTML = `<span>${['일','월','화','수','목','금','토'][d.getDay()]}</span><strong>${d.getDate()}</strong>`;
+                item.onclick = () => { selectedDate = dK; render(); };
+                strip.appendChild(item);
+                d.setDate(d.getDate() + 1);
+            }
+        }
+
+        function setToday() { selectedDate = realToday; render(); }
+        function moveDay(v) { let d = new Date(selectedDate); d.setDate(d.getDate() + v); selectedDate = toDateKey(d); render(); }
+        function editDailyMsg() { const n = prompt(`${selectedDate}의 한마디 수정`, getEffectiveMsg(selectedDate)); if(n !== null) { db[selectedDate].msg = n; save(); render(); } }
+        function toggleTodo(id) { const dArr = db[selectedDate].done; const idx = dArr.indexOf(String(id)); if(idx > -1) dArr.splice(idx,1); else dArr.push(String(id)); save(); render(); }
+        
         function addDailyEntry() {
             const d = document.getElementById('acc-desc'), a = document.getElementById('acc-amount'), c = document.getElementById('acc-cat'), f = document.getElementById('acc-fixed'), p = document.getElementById('acc-fixed-period');
             if(!d.value || !a.value) return;
             const newItem = { id: Date.now(), category: c.value, desc: d.value, amount: parseInt(a.value), isFixed: f.checked, fixedPeriod: p.value };
             if(f.checked) fixedAcc.push(newItem); else db[selectedDate].acc.push(newItem);
-            push(); d.value=''; a.value=''; f.checked=false;
+            save(); render(); d.value=''; a.value=''; f.checked=false;
         }
 
         function addDailyTodo() {
@@ -179,34 +201,49 @@
             if(!i.value) return;
             const newItem = { id: Date.now(), time: t.value, text: i.value, isFixed: r.checked };
             if(r.checked) fixedTodo.push(newItem); else db[selectedDate].todo.push(newItem);
-            push(); i.value=''; r.checked=false;
+            save(); render(); i.value=''; r.checked=false;
         }
 
-        function toggleTodo(id) { if(!db[selectedDate].done) db[selectedDate].done = []; const d = db[selectedDate].done, idx = d.indexOf(String(id)); if(idx > -1) d.splice(idx,1); else d.push(String(id)); push(); }
-        function removeAcc(f, id) { if(f) fixedAcc=fixedAcc.filter(x=>x.id!==id); else db[selectedDate].acc=db[selectedDate].acc.filter(x=>x.id!==id); push(); }
-        function removeTodo(f, id) { if(f) fixedTodo=fixedTodo.filter(x=>x.id!==id); else db[selectedDate].todo=db[selectedDate].todo.filter(x=>x.id!==id); push(); }
-        function moveDay(v) { let d=new Date(selectedDate); d.setDate(d.getDate()+v); selectedDate=toDateKey(d); render(); }
-        function setToday() { selectedDate=realToday; render(); }
-        function renderDayStrip() { const s = document.getElementById('day-strip'); s.innerHTML = ''; let d = new Date(selectedDate); d.setDate(d.getDate() - d.getDay()); for(let i=0; i<7; i++) { const dK = toDateKey(d); const item = document.createElement('div'); item.className=`strip-item ${dK===selectedDate?'active':''}`; item.innerHTML=`<span>${['일','월','화','수','목','금','토'][d.getDay()]}</span><strong>${d.getDate()}</strong>`; item.onclick=()=>{selectedDate=dK; render();}; s.appendChild(item); d.setDate(d.getDate()+1); } }
-        function editDailyMsg() { const n = prompt(`${selectedDate}의 한마디`, getEffectiveMsg(selectedDate)); if(n) { db[selectedDate].msg = n; push(); } }
+        function removeAcc(f, id) { if(f) fixedAcc=fixedAcc.filter(x=>x.id!==id); else db[selectedDate].acc=db[selectedDate].acc.filter(x=>x.id!==id); save(); render(); }
+        function removeTodo(f, id) { if(f) fixedTodo=fixedTodo.filter(x=>x.id!==id); else db[selectedDate].todo=db[selectedDate].todo.filter(x=>x.id!==id); save(); render(); }
         function switchTab(t) { document.querySelectorAll('.m-tab').forEach(b=>b.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active')); event.currentTarget.classList.add('active'); document.getElementById('section-'+t).classList.add('active'); }
         function closeModal() { document.getElementById('report-modal').style.display='none'; }
+        
         function showReport() {
             const weeklyBody = document.getElementById('report-weekly-body'), monthlyBody = document.getElementById('report-monthly-body');
-            weeklyBody.innerHTML = ''; let weekT = 0;
+            weeklyBody.innerHTML = ''; let weekTotal = 0;
+            
+            // 리포트 시에도 평일/매일 고정지출 구분하여 합산
             for(let i=0; i<7; i++) {
-                let temp = new Date(); temp.setDate(temp.getDate() - i); let dK = toDateKey(temp);
-                let dExp = activeFixedSum(temp) + (db[dK] ? (db[dK].acc || []).reduce((a,b)=>a+b.amount,0) : 0);
-                weekT += dExp; weeklyBody.innerHTML += `<div class="report-row"><span>${dK.substring(5)}</span><strong>${dExp.toLocaleString()}원</strong></div>`;
+                let temp = new Date(); temp.setDate(temp.getDate() - i);
+                let dK = toDateKey(temp);
+                let dOfWeek = temp.getDay();
+                
+                let dExp = fixedAcc.filter(item => {
+                    if (item.fixedPeriod === 'weekday') return dOfWeek >= 1 && dOfWeek <= 5;
+                    return true;
+                }).reduce((a,b)=>a+b.amount,0);
+
+                if(db[dK]) dExp += (db[dK].acc || []).reduce((a,b)=>a+b.amount,0);
+                weekTotal += dExp; 
+                weeklyBody.innerHTML += `<div class="report-row"><span>${dK.substring(5)}</span><strong>${dExp.toLocaleString()}원</strong></div>`;
             }
+            
             const curM = selectedDate.substring(0,7); let monT = 0;
-            Object.keys(db).forEach(k => { if(k.startsWith(curM)) monT += (db[k].acc || []).reduce((s,i)=>s+i.amount,0) + activeFixedSum(new Date(k)); });
+            // 월간 합산 로직도 요일별 고정지출 고려 (간소화를 위해 현재 db에 기록된 일자들 기준)
+            Object.keys(db).forEach(k => { 
+                if(k.startsWith(curM)) {
+                    const dObj = new Date(k);
+                    const dow = dObj.getDay();
+                    const fExp = fixedAcc.filter(item => {
+                        if (item.fixedPeriod === 'weekday') return dow >= 1 && dow <= 5;
+                        return true;
+                    }).reduce((a,b)=>a+b.amount,0);
+                    monT += fExp + (db[k].acc || []).reduce((s,i)=>s+i.amount,0);
+                }
+            });
             monthlyBody.innerHTML = `<div class="month-main-val">${monT.toLocaleString()}원</div><div class="month-info-sub">이번 달 합계 (${curM})</div>`;
             document.getElementById('report-modal').style.display='flex';
-        }
-        function activeFixedSum(dateObj) {
-            const isW = dateObj.getDay() >= 1 && dateObj.getDay() <= 5;
-            return fixedAcc.filter(f => f.fixedPeriod === 'weekday' ? isW : true).reduce((a,b)=>a+b.amount,0);
         }
         document.getElementById('theme-toggle').addEventListener('click', () => { document.body.classList.toggle('dark-mode'); document.getElementById('theme-toggle').innerText = document.body.classList.contains('dark-mode') ? '☀️' : '🌙'; });
     </script>
