@@ -145,7 +145,6 @@
         }
 
         function render() {
-            const isActualToday = (selectedDate === realToday);
             if (!db[selectedDate]) db[selectedDate] = { acc: [], todo: [], done: [], msg: "" };
             document.getElementById('current-focus-date').innerText = selectedDate.replace(/-/g, '.');
             document.getElementById('daily-msg-text').innerText = getEffectiveMsg(selectedDate);
@@ -154,18 +153,14 @@
             const dayOfWeek = new Date(selectedDate).getDay();
             const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
 
-            // 1. 가계부 렌더링 (최근 등록순: b.id - a.id)
+            // 1. 가계부 렌더링
             const accList = document.getElementById('acc-list'); accList.innerHTML = '';
             let dayTotal = 0;
-            
             const activeFixedAcc = fixedAcc.filter(item => {
                 if (item.fixedPeriod === 'weekday') return isWeekday;
                 return true;
             });
-
-            // 할 일 리스트와 동일하게 정렬 방식을 b.id - a.id (내림차순)로 수정
             const sortedAcc = [...activeFixedAcc, ...db[selectedDate].acc].sort((a, b) => b.id - a.id);
-            
             sortedAcc.forEach((i) => {
                 dayTotal += i.amount;
                 const li = document.createElement('li'); li.className = 'list-item';
@@ -175,14 +170,12 @@
             });
             document.getElementById('day-expense').innerText = dayTotal.toLocaleString() + "원";
 
-            // 2. 할 일 렌더링 (최근 등록순: b.id - a.id)
+            // 2. 할 일 렌더링 (가계부와 동일하게 상시 삭제 가능하도록 수정)
             const todoList = document.getElementById('todo-list'); todoList.innerHTML = '';
-            
             const activeFixedTodo = fixedTodo.filter(item => {
                 if (item.fixedPeriod === 'weekday') return isWeekday;
                 return true;
             });
-
             const sortedTodo = [...activeFixedTodo, ...db[selectedDate].todo].sort((a, b) => b.id - a.id);
             
             let pendingCount = 0;
@@ -190,8 +183,17 @@
                 const isDone = db[selectedDate].done.includes(String(t.id));
                 if (!isDone) pendingCount++;
                 const li = document.createElement('li'); li.className = `list-item ${isDone ? 'done' : ''}`;
-                const delBtn = isActualToday ? `<button class="btn-icon-del" onclick="removeTodo(${t.isFixed}, ${t.id})">🗑️</button>` : '';
-                li.innerHTML = `<div class="todo-item" onclick="toggleTodo('${t.id}')"><div class="t-icon"></div><div class="item-info"><small>${t.time} ${t.isFixed ? '(반복)' : ''}</small><div class="name">${t.text}</div></div></div>${delBtn}`;
+                
+                // [수정 포인트] 가계부와 동일하게 삭제 버튼이 항상 노출되도록 delBtn 조건문 제거
+                li.innerHTML = `
+                    <div class="todo-item" onclick="toggleTodo('${t.id}')">
+                        <div class="t-icon"></div>
+                        <div class="item-info">
+                            <small>${t.time} ${t.isFixed ? '(반복)' : ''}</small>
+                            <div class="name">${t.text}</div>
+                        </div>
+                    </div>
+                    <button class="btn-icon-del" onclick="removeTodo(${t.isFixed}, ${t.id})">🗑️</button>`;
                 todoList.appendChild(li);
             });
             document.getElementById('day-todo-count').innerText = pendingCount + "개";
