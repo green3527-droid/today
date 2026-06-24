@@ -298,52 +298,28 @@
         }
         document.getElementById('theme-toggle').addEventListener('click', () => { document.body.classList.toggle('dark-mode'); document.getElementById('theme-toggle').innerText = document.body.classList.contains('dark-mode') ? '☀️' : '🌙'; });
 
-        // --- 1. Firebase 설정 (본인의 실제 값으로 정확히 교체하세요) ---
-const firebaseConfig = {
-    apiKey: "본인의 API KEY",
-    databaseURL: "https://본인의 프로젝트ID-default-rtdb.firebaseio.com", // 이 주소가 정확해야 합니다!
-    projectId: "본인의 프로젝트ID",
-};
+        // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
 
-// 초기화 시도 및 에러 체크
-try {
-    firebase.initializeApp(firebaseConfig);
-    console.log("Firebase 초기화 성공");
-} catch (error) {
-    alert("Firebase 초기화 에러: " + error.message);
-}
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyBhhNNvMXtDo33PRIBY5AfQGoPe7oxiNNM",
+    authDomain: "today-f9d8b.firebaseapp.com",
+    databaseURL: "https://today-f9d8b-default-rtdb.firebaseio.com",
+    projectId: "today-f9d8b",
+    storageBucket: "today-f9d8b.firebasestorage.app",
+    messagingSenderId: "1033634690930",
+    appId: "1:1033634690930:web:9d393b1da663472fd90feb",
+    measurementId: "G-6N2EPG2D1Z"
+  };
 
-const database = firebase.database();
-const USER_DATA_PATH = "mjin_cloud_v1";
-
-// 데이터 읽기 시도 체크
-window.onload = () => {
-    database.ref(USER_DATA_PATH).on('value', (snapshot) => {
-        console.log("데이터 수신됨:", snapshot.val());
-        const data = snapshot.val();
-        if (data) {
-            db = data.db || {};
-            fixedAcc = data.fixedAcc || [];
-            fixedTodo = data.fixedTodo || [];
-        }
-        render();
-    }, (error) => {
-        alert("데이터 불러오기 실패 (규칙 확인 필요): " + error.message);
-    });
-};
-
-// 저장 시도 체크
-function save() {
-    database.ref(USER_DATA_PATH).set({
-        db: db,
-        fixedAcc: fixedAcc,
-        fixedTodo: fixedTodo
-    }).then(() => {
-        console.log("저장 완료!");
-    }).catch((error) => {
-        alert("저장 실패: " + error.message);
-    });
-}
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
     </script>
 </body>
 
