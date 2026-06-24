@@ -16,6 +16,8 @@
                 <h1 class="logo">mjin</h1>
             </div>
             <div class="header-right">
+                <button onclick="exportData()" class="btn-report" style="background:#4caf50; color:white;">📤 내보내기</button>
+                <button onclick="importData()" class="btn-report" style="background:#2196f3; color:white;">📥 가져오기</button>
                 <button onclick="showReport()" class="btn-report">📊 리포트</button>
                 <button id="theme-toggle" class="btn-theme">🌙</button>
             </div>
@@ -270,6 +272,53 @@
             document.getElementById('report-modal').style.display = 'flex';
         }
         document.getElementById('theme-toggle').addEventListener('click', () => { document.body.classList.toggle('dark-mode'); document.getElementById('theme-toggle').innerText = document.body.classList.contains('dark-mode') ? '☀️' : '🌙'; });
+
+        // 데이터 내보내기 (PC에서 실행)
+function exportData() {
+    const allData = {
+        db: db,
+        fixedAcc: fixedAcc,
+        fixedTodo: fixedTodo
+    };
+    // 데이터를 문자열로 압축 (한글 깨짐 방지 포함)
+    const dataStr = btoa(encodeURIComponent(JSON.stringify(allData)));
+    
+    // 클립보드에 복사 시도
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(dataStr).then(() => {
+            alert("데이터가 복사되었습니다! 카톡 등으로 모바일에 전달하세요.");
+        });
+    } else {
+        // 구형 브라우저 대응
+        prompt("아래 코드를 모두 복사해서 모바일에 전달하세요:", dataStr);
+    }
+}
+
+// 데이터 가져오기 (모바일에서 실행)
+function importData() {
+    const code = prompt("PC에서 복사한 데이터를 여기에 붙여넣으세요.");
+    if (!code) return;
+    
+    try {
+        const decodedData = JSON.parse(decodeURIComponent(atob(code)));
+        if (confirm("기존 데이터가 모두 사라지고 불러온 데이터로 교체됩니다. 진행할까요?")) {
+            // 변수 갱신
+            db = decodedData.db || {};
+            fixedAcc = decodedData.fixedAcc || [];
+            fixedTodo = decodedData.fixedTodo || [];
+            
+            // 로컬 스토리지 저장
+            save();
+            
+            // 화면 새로고침
+            location.reload();
+        }
+    } catch (e) {
+        alert("잘못된 데이터 형식입니다. 다시 확인해주세요.");
+    }
+}
+
+        
     </script>
 </body>
 
