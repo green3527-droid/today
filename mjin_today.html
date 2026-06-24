@@ -4,8 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kakao Daily Manager</title>
+    <title>mjin Daily Manager (Cloud)</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Firebase SDK (실시간 연동용) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 </head>
 
 <body>
@@ -14,6 +17,7 @@
         <header class="app-header">
             <div class="header-left">
                 <h1 class="logo">mjin</h1>
+                <span id="sync-status" style="font-size: 8px; color: #4caf50; margin-left: 5px;">● 실시간</span>
             </div>
             <div class="header-right">
                 <button onclick="showReport()" class="btn-report">📊 리포트</button>
@@ -117,41 +121,55 @@
     </div>
 
     <script>
+        // 1. Firebase 설정 (본인의 Firebase 콘솔 설정값으로 교체하세요)
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // 2. 데이터 키 (보안을 위해 본인만의 비밀 키워드로 바꾸면 더 안전합니다)
+        const USER_DATA_PATH = "mjin_cloud_v1"; 
+
+        // 3. 상태 변수
+        let db = {};
+        let fixedAcc = [];
+        let fixedTodo = [];
         const toDateKey = (date) => {
             const y = date.getFullYear();
             const m = String(date.getMonth() + 1).padStart(2, '0');
             const d = String(date.getDate()).padStart(2, '0');
             return `${y}-${m}-${d}`;
         };
-
-        let db = JSON.parse(localStorage.getItem('kakao_db_v14')) || {};
-        let fixedAcc = JSON.parse(localStorage.getItem('kakao_fix_acc')) || [];
-        let fixedTodo = JSON.parse(localStorage.getItem('kakao_fix_todo')) || [];
         const realToday = toDateKey(new Date());
         let selectedDate = realToday;
 
-        window.onload = () => { render(); };
+        // 4. 초기 데이터 로드 및 실시간 감시
+        window.onload = () => {
+            database.ref(USER_DATA_PATH).on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    db = data.db || {};
+                    fixedAcc = data.fixedAcc || [];
+                    fixedTodo = data.fixedTodo || [];
+                }
+                render();
+            });
+        };
 
+        // 5. 저장 함수 (클라우드 전송)
         function save() {
-            localStorage.setItem('kakao_db_v14', JSON.stringify(db));
-            localStorage.setItem('kakao_fix_acc', JSON.stringify(fixedAcc));
-            localStorage.setItem('kakao_fix_todo', JSON.stringify(fixedTodo));
+            database.ref(USER_DATA_PATH).set({
+                db: db,
+                fixedAcc: fixedAcc,
+                fixedTodo: fixedTodo
+            });
         }
 
-        function getEffectiveMsg(dateStr) {
-            if (db[dateStr] && db[dateStr].msg) return db[dateStr].msg;
-            const pastDates = Object.keys(db).filter(d => d < dateStr && db[d].msg).sort().reverse();
-            return pastDates.length > 0 ? db[pastDates[0]].msg : "오늘의 한마디를 입력해보세요.";
-        }
-
-        function render() {
-            if (!db[selectedDate]) db[selectedDate] = { acc: [], todo: [], done: [], msg: "" };
-            document.getElementById('current-focus-date').innerText = selectedDate.replace(/-/g, '.');
-            document.getElementById('daily-msg-text').innerText = getEffectiveMsg(selectedDate);
-            renderDayStrip();
-
-            const dayOfWeek = new Date(selectedDate).getDay();
-            const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+        // --- 기능 로직 (사용자 최종 파일과 동일) ---
 
             // 1. 가계부 렌더링
             const accList = document.getElementById('acc-list'); accList.innerHTML = '';
