@@ -3,25 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>mjin Daily Manager (Stable Sync)</title>
+    <title>mjin Daily Manager (Perfect Sync)</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* 상단 동기화 상태바 */
-        .sync-status-bar { 
-            background: #1e1e1e; color: #fff; padding: 8px 15px; font-size: 11px; 
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff9800; display: inline-block; margin-right: 5px; }
-        .sync-dot.online { background: #4caf50; }
-        .btn-copy-link { background: #444; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 10px; }
+        .sync-info { background: #1e1e1e; color: #fff; padding: 10px 15px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; }
+        .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; display: inline-block; margin-right: 5px; }
+        .btn-reset-key { background: #444; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="mobile-container">
-        <!-- 상태바: 서버 연결과 상관없이 앱은 작동합니다 -->
-        <div class="sync-status-bar">
-            <span><span class="sync-dot" id="sync-status-dot"></span> <span id="sync-status-text">데이터 로드 완료</span></span>
-            <button class="btn-copy-link" onclick="copyMyLink()">🔗 전용 링크 복사</button>
+        <!-- 상단 연동 상태바 -->
+        <div class="sync-info">
+            <span><span class="sync-dot"></span> <span id="sync-display">내 기기 연결됨</span></span>
+            <button class="btn-reset-key" onclick="resetSyncKey()">연동 단어 변경</button>
         </div>
 
         <header class="app-header">
@@ -107,28 +102,26 @@
     </div>
 
     <script>
-        // --- 1. 전용 키 설정 ---
-        const urlParams = new URLSearchParams(window.location.search);
-        let MY_KEY = urlParams.get('key');
-        if (!MY_KEY) {
-            MY_KEY = 'mjin_' + Math.random().toString(36).substring(2, 11);
-            const newUrl = window.location.origin + window.location.pathname + '?key=' + MY_KEY;
-            window.history.replaceState({}, '', newUrl);
+        // --- 1. 나만의 비밀 연동 단어 설정 ---
+        let SYNC_KEY = localStorage.getItem('mj_sync_word');
+        if (!SYNC_KEY) {
+            SYNC_KEY = prompt("모든 기기에서 공통으로 사용할 비밀 단어를 정해주세요.\n(예: mjin77, 본인 휴대폰 번호 등)");
+            if (SYNC_KEY) localStorage.setItem('mj_sync_word', SYNC_KEY);
+            else SYNC_KEY = "guest_user";
+        }
+        document.getElementById('sync-display').innerText = "연동단어: " + SYNC_KEY;
+
+        function resetSyncKey() {
+            const newKey = prompt("새로운 비밀 단어를 입력하세요 (주의: 기존 데이터와 분리됩니다)");
+            if (newKey) {
+                localStorage.setItem('mj_sync_word', newKey);
+                location.reload();
+            }
         }
 
-        const API_URL = `https://kvdb.io/S8mUqP6C9G9R1E6hLp6Q7a/${MY_KEY}`;
+        const API_URL = `https://kvdb.io/S8mUqP6C9G9R1E6hLp6Q7a/${SYNC_KEY}`;
 
-        function copyMyLink() {
-            const el = document.createElement('textarea');
-            el.value = window.location.href;
-            document.body.appendChild(el);
-            el.select();
-            document.execCommand('copy');
-            document.body.removeChild(el);
-            alert("전용 링크가 복사되었습니다!");
-        }
-
-        // --- 2. 데이터 초기화 (로컬 데이터 즉시 로드) ---
+        // --- 2. 데이터 관리 (로컬 우선) ---
         let db = JSON.parse(localStorage.getItem('mj_local_db')) || {};
         let fixedAcc = JSON.parse(localStorage.getItem('mj_local_fix_acc')) || [];
         let fixedTodo = JSON.parse(localStorage.getItem('mj_local_fix_todo')) || [];
@@ -141,52 +134,43 @@
         };
         let selectedDate = toDateKey(new Date());
 
-        // --- 3. 동기화 로직 (백그라운드 처리) ---
-        async function syncWithCloud() {
+        window.onload = async () => {
+            render();
+            // 클라우드에서 최신 데이터 가져와 합치기
             try {
-                // 서버에서 최신 데이터 가져오기
                 const res = await fetch(API_URL);
                 if (res.ok) {
                     const cloudData = await res.json();
-                    if (cloudData) {
-                        // 서버 데이터가 더 최신이라면 로컬 업데이트
+                    if(cloudData) {
                         db = cloudData.db || db;
                         fixedAcc = cloudData.fixedAcc || fixedAcc;
                         fixedTodo = cloudData.fixedTodo || fixedTodo;
                         render();
                     }
-                    document.getElementById('sync-status-dot').classList.add('online');
-                    document.getElementById('sync-status-text').innerText = "클라우드 동기화 완료";
                 }
-            } catch (e) {
-                document.getElementById('sync-status-text').innerText = "오프라인 모드";
-            }
-        }
+            } catch (e) { console.log("Cloud Sync Fail"); }
+        };
 
         function save() {
-            // 1. 내 폰(LocalStorage)에 즉시 저장 (가장 중요: 지연 없음)
+            // 로컬에 즉시 저장
             localStorage.setItem('mj_local_db', JSON.stringify(db));
             localStorage.setItem('mj_local_fix_acc', JSON.stringify(fixedAcc));
             localStorage.setItem('mj_local_fix_todo', JSON.stringify(fixedTodo));
             render();
 
-            // 2. 서버에 백그라운드로 전송
+            // 배경에서 클라우드에 전송
             fetch(API_URL, {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ db, fixedAcc, fixedTodo })
-            }).catch(e => console.log("서버 저장 대기 중..."));
+            }).catch(e => console.log("Sync delay..."));
         }
 
-        window.onload = () => {
-            render(); // 일단 내 폰에 있는거 바로 보여줌
-            syncWithCloud(); // 그 다음 서버에서 가져옴
-        };
-
-        // --- 4. 앱 기능 (최종 파일과 동일) ---
+        // --- 3. 기본 기능 (최종 파일과 동일) ---
         function getEffectiveMsg(dateStr) {
             if (db[dateStr] && db[dateStr].msg) return db[dateStr].msg;
             const pastDates = Object.keys(db).filter(d => d < dateStr && db[d].msg).sort().reverse();
-            return pastDates.length > 0 ? db[pastDates[0]].msg : "오늘의 한마디를 입력해보세요.";
+            return pastDates.length > 0 ? db[pastDates[0]].msg : "오늘의 한마디를 입력해주세요.";
         }
 
         function render() {
@@ -234,14 +218,13 @@
         }
 
         function setToday() { selectedDate = toDateKey(new Date()); render(); }
-        function moveDay(v) { let d = new Date(selectedDate); d.setDate(d.getDate()+v); selectedDate = toDateKey(d); render(); }
+        function moveDay(v) { let cur = new Date(selectedDate); cur.setDate(cur.getDate() + v); selectedDate = toDateKey(cur); render(); }
         function editDailyMsg() { const n = prompt(`한마디 수정`, getEffectiveMsg(selectedDate)); if (n!==null) { db[selectedDate].msg = n; save(); } }
         function toggleTodo(id) { 
             const dArr = db[selectedDate].done; const idx = dArr.indexOf(String(id)); 
             if (idx > -1) dArr.splice(idx, 1); else dArr.push(String(id)); 
             save(); 
         }
-
         function addDailyEntry() {
             const d = document.getElementById('acc-desc'), a = document.getElementById('acc-amount'), c = document.getElementById('acc-cat'), f = document.getElementById('acc-fixed');
             if (!d.value || !a.value) return;
@@ -249,7 +232,6 @@
             if (f.checked) fixedAcc.push(item); else db[selectedDate].acc.push(item);
             save(); d.value = ''; a.value = ''; f.checked = false;
         }
-
         function addDailyTodo() {
             const i = document.getElementById('todo-input'), t = document.getElementById('todo-time'), r = document.getElementById('todo-repeat');
             if (!i.value) return;
@@ -257,15 +239,12 @@
             if (r.checked) fixedTodo.push(item); else db[selectedDate].todo.push(item);
             save(); i.value = ''; r.checked = false;
         }
-
         function removeAcc(f, id) { if (f) fixedAcc = fixedAcc.filter(x => x.id !== id); else db[selectedDate].acc = db[selectedDate].acc.filter(x => x.id !== id); save(); }
         function removeTodo(f, id) { if (f) fixedTodo = fixedTodo.filter(x => x.id !== id); else db[selectedDate].todo = db[selectedDate].todo.filter(x => x.id !== id); save(); }
         function switchTab(t) { document.querySelectorAll('.m-tab').forEach(b => b.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); event.currentTarget.classList.add('active'); document.getElementById('section-' + t).classList.add('active'); }
         function closeModal() { document.getElementById('report-modal').style.display = 'none'; }
-
         function showReport() {
-            const weeklyBody = document.getElementById('report-weekly-body');
-            const monthlyBody = document.getElementById('report-monthly-body');
+            const weeklyBody = document.getElementById('report-weekly-body'), monthlyBody = document.getElementById('report-monthly-body');
             weeklyBody.innerHTML = ''; let weekTotal = 0;
             for (let i = 0; i < 7; i++) {
                 let temp = new Date(); temp.setDate(temp.getDate() - i);
