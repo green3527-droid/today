@@ -117,45 +117,6 @@
     </div>
 
     <script>
-        /* 기존 save 함수를 수정하고 새로운 함수를 추가합니다 */
-
-function save() {
-    localStorage.setItem('kakao_db_v14', JSON.stringify(db));
-    localStorage.setItem('kakao_fix_acc', JSON.stringify(fixedAcc));
-    localStorage.setItem('kakao_fix_todo', JSON.stringify(fixedTodo));
-}
-
-// --- 동기화 기능 추가 ---
-
-// 1. 현재 기기의 모든 데이터를 텍스트로 추출
-function exportData() {
-    const allData = {
-        db: db,
-        fixedAcc: fixedAcc,
-        fixedTodo: fixedTodo
-    };
-    const dataStr = btoa(encodeURIComponent(JSON.stringify(allData))); // 암호화된 텍스트로 변환
-    const promptMsg = prompt("이 코드를 복사하여 다른 기기에 붙여넣으세요:", dataStr);
-}
-
-// 2. 다른 기기에서 복사한 텍스트를 입력하여 데이터 덮어쓰기
-function importData() {
-    const code = prompt("동기화 코드를 입력하세요:");
-    if (!code) return;
-    try {
-        const decodedData = JSON.parse(decodeURIComponent(atob(code)));
-        if (confirm("기존 데이터가 모두 사라지고 새로운 데이터로 교체됩니다. 진행할까요?")) {
-            db = decodedData.db;
-            fixedAcc = decodedData.fixedAcc;
-            fixedTodo = decodedData.fixedTodo;
-            save();
-            location.reload(); // 새로고침하여 반영
-        }
-    } catch (e) {
-        alert("잘못된 동기화 코드입니다.");
-    }
-}
-        
         const toDateKey = (date) => {
             const y = date.getFullYear();
             const m = String(date.getMonth() + 1).padStart(2, '0');
