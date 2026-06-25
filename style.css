@@ -57,7 +57,7 @@ body.dark-mode .btn-today-mini { background: var(--yellow); color: #000; }
 .day-summary { display: flex; padding: 15px; gap: 10px; }
 .sum-box { flex: 1; background: var(--card); padding: 15px; border-radius: var(--radius); border: 1px solid var(--line); text-align: center; }
 .sum-box .label { font-size: 11px; color: var(--txt2); display: block; margin-bottom: 5px; }
-.sum-box .val { font-size: 16px; font-weight: 800; }
+.sum-box .val { font-size: 14px; font-weight: 800; }
 .main-tabs { display: flex; background: var(--card); border-bottom: 1px solid var(--line); }
 .m-tab { flex: 1; padding: 15px; border: none; background: none; color: var(--txt2); font-size: 14px; font-weight: 700; cursor: pointer; }
 .m-tab.active { color: var(--txt1); border-bottom: 3px solid var(--yellow); }
