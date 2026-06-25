@@ -90,7 +90,7 @@ body.dark-mode .cat-select { background-image: url('data:image/svg+xml;utf8,<svg
 /* 왼쪽 정보 영역 (식비 / 내역) */
 .item-info { display: flex; flex-direction: column; gap: 4px; }
 .item-info small { color: var(--txt2); font-size: 12px; font-weight: 500; }
-.item-info .name { color: var(--txt1); font-size: 16px; font-weight: 600; }
+.item-info .name { color: var(--txt1); font-size: 14px; font-weight: 600; }
 
 /* 오른쪽 금액 및 삭제 버튼 영역 */
 .amount-area { display: flex; align-items: center; gap: 12px; }
