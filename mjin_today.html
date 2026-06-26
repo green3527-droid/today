@@ -170,13 +170,22 @@
             });
             document.getElementById('day-expense').innerText = dayTotal.toLocaleString() + "원";
 
-            // 2. 할 일 렌더링 (가계부와 동일하게 상시 삭제 가능하도록 수정)
+            // 2. 할 일 렌더링 (시간 내림차순 정렬 적용)
             const todoList = document.getElementById('todo-list'); todoList.innerHTML = '';
             const activeFixedTodo = fixedTodo.filter(item => {
                 if (item.fixedPeriod === 'weekday') return isWeekday;
                 return true;
             });
-            const sortedTodo = [...activeFixedTodo, ...db[selectedDate].todo].sort((a, b) => b.id - a.id);
+            
+            // [개선 포인트] 시간 기준 내림차순 정렬
+            const sortedTodo = [...activeFixedTodo, ...db[selectedDate].todo].sort((a, b) => {
+                // 1순위: 시간(time) 내림차순 (예: 08:00 이 07:30 보다 위로)
+                if (b.time !== a.time) {
+                    return b.time.localeCompare(a.time);
+                }
+                // 2순위: 시간이 같으면 ID 내림차순 (최신 등록순)
+                return b.id - a.id;
+            });
             
             let pendingCount = 0;
             sortedTodo.forEach((t) => {
@@ -184,7 +193,6 @@
                 if (!isDone) pendingCount++;
                 const li = document.createElement('li'); li.className = `list-item ${isDone ? 'done' : ''}`;
                 
-                // [수정 포인트] 가계부와 동일하게 삭제 버튼이 항상 노출되도록 delBtn 조건문 제거
                 li.innerHTML = `
                     <div class="todo-item" onclick="toggleTodo('${t.id}')">
                         <div class="t-icon"></div>
