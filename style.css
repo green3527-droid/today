@@ -68,7 +68,7 @@ body.dark-mode .btn-today-mini { background: var(--yellow); color: #000; }
 .row { display: flex; gap: 8px; }
 .row-sub { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #888888; }
 .fixed-options { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.kakao-input { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; font-size: 14px; color: var(--txt1); outline: none; transition: all 0.2s; }
+.kakao-input { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font-size: 14px; color: var(--txt1); outline: none; transition: all 0.2s; }
 
 /* 카테고리 선택창 커스텀 스타일 (화살표 포함) */
 .cat-select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 32px; background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23888888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>'); background-repeat: no-repeat; background-position: right 10px center; background-size: 14px; }
