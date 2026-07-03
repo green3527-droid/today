@@ -138,6 +138,12 @@
             const d = String(date.getDate()).padStart(2, '0');
             return `${y}-${m}-${d}`;
         };
+        // "YYYY-MM-DD" 문자열을 항상 "로컬 타임존 자정"으로 해석 (UTC 파싱으로 인한 날짜 밀림 방지)
+        const parseLocalDate = (dateStr) => {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            return new Date(y, m - 1, d);
+        };
+        const getRealToday = () => toDateKey(new Date());
 
         // ===== Firebase 설정 =====
         // 아래 firebaseConfig 값을 본인의 Firebase 프로젝트 설정값으로 교체하세요.
@@ -160,30 +166,69 @@
         let db = {};
         let fixedAcc = [];
         let fixedTodo = [];
-        const realToday = toDateKey(new Date());
+        let realToday = getRealToday();
         let selectedDate = realToday;
-        let isSaving = false; // 내가 방금 저장한 변경사항이 되돌아와서 다시 렌더링되는 것 방지용
 
         const syncStatusEl = () => document.getElementById('sync-status');
+        let hasLoadedOnce = false;
 
         // Firebase 실시간 리스너: PC/모바일 어느 쪽에서 바뀌든 즉시 반영됨
+        // (이전의 isSaving 플래그는 저장 응답이 지연될 때 다른 기기의 업데이트를 놓치는
+        //  원인이 되어 제거했습니다. 매번 그대로 반영하는 게 더 안전합니다.)
         dbRef.on('value', (snapshot) => {
-            if (isSaving) { isSaving = false; return; }
             const data = snapshot.val();
             if (data) {
                 db = data.db || {};
                 fixedAcc = data.fixedAcc || [];
                 fixedTodo = data.fixedTodo || [];
             }
-            if (syncStatusEl()) syncStatusEl().innerText = '✅ 동기화됨';
+            hasLoadedOnce = true;
             render();
         }, (error) => {
             console.error(error);
             if (syncStatusEl()) syncStatusEl().innerText = '⚠️ 연결 실패';
         });
 
+        // 실제 서버 연결 상태를 기준으로 상태 표시 (더 정확함)
+        firebase.database().ref('.info/connected').on('value', (snap) => {
+            if (!syncStatusEl()) return;
+            if (snap.val() === true) {
+                syncStatusEl().innerText = hasLoadedOnce ? '✅ 동기화됨' : '🔄 연결 중...';
+            } else {
+                syncStatusEl().innerText = '🔌 오프라인 (재연결 중...)';
+            }
+        });
+
+        // 모바일에서 탭/앱을 백그라운드로 뒀다가 돌아왔을 때 연결이 끊긴 채로
+        // 방치되는 경우가 있어, 화면이 다시 보일 때마다 강제로 재연결 + 최신 데이터를 다시 받아옵니다.
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                firebase.database().goOnline();
+                dbRef.once('value').then((snap) => {
+                    const data = snap.val();
+                    if (data) {
+                        db = data.db || {};
+                        fixedAcc = data.fixedAcc || [];
+                        fixedTodo = data.fixedTodo || [];
+                    }
+                    checkMidnightRollover();
+                    render();
+                });
+            }
+        });
+
+        // 자정이 지나면 "오늘" 날짜를 자동으로 갱신 (탭을 오래 켜둬도 날짜가 밀리지 않도록)
+        function checkMidnightRollover() {
+            const nowStr = getRealToday();
+            if (nowStr !== realToday) {
+                const wasOnToday = (selectedDate === realToday);
+                realToday = nowStr;
+                if (wasOnToday) selectedDate = realToday;
+            }
+        }
+        setInterval(() => { checkMidnightRollover(); render(); }, 60 * 1000);
+
         function save() {
-            isSaving = true;
             dbRef.set({ db, fixedAcc, fixedTodo }).catch((err) => {
                 console.error(err);
                 if (syncStatusEl()) syncStatusEl().innerText = '⚠️ 저장 실패';
@@ -256,7 +301,7 @@
             document.getElementById('daily-msg-text').innerText = getEffectiveMsg(selectedDate);
             renderDayStrip();
 
-            const dayOfWeek = new Date(selectedDate).getDay();
+            const dayOfWeek = parseLocalDate(selectedDate).getDay();
             const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
 
             // 1. 가계부 렌더링
@@ -329,7 +374,7 @@
 
         function renderDayStrip() {
             const strip = document.getElementById('day-strip'); strip.innerHTML = '';
-            let d = new Date(selectedDate); d.setDate(d.getDate() - d.getDay());
+            let d = parseLocalDate(selectedDate); d.setDate(d.getDate() - d.getDay());
             for (let i = 0; i < 7; i++) {
                 const dK = toDateKey(d);
                 const item = document.createElement('div');
@@ -341,8 +386,8 @@
             }
         }
 
-        function setToday() { selectedDate = realToday; render(); }
-        function moveDay(v) { let d = new Date(selectedDate); d.setDate(d.getDate() + v); selectedDate = toDateKey(d); render(); }
+        function setToday() { realToday = getRealToday(); selectedDate = realToday; render(); }
+        function moveDay(v) { let d = parseLocalDate(selectedDate); d.setDate(d.getDate() + v); selectedDate = toDateKey(d); render(); }
         function editDailyMsg() { const n = prompt(`${selectedDate}의 한마디 수정`, getEffectiveMsg(selectedDate)); if (n !== null) { db[selectedDate].msg = n; save(); render(); } }
         function toggleTodo(id) { const dArr = db[selectedDate].done; const idx = dArr.indexOf(String(id)); if (idx > -1) dArr.splice(idx, 1); else dArr.push(String(id)); save(); render(); }
 
@@ -368,7 +413,7 @@
         function closeModal() { document.getElementById('report-modal').style.display = 'none'; }
 
         function getDayFixedTotal(dateStr) {
-            const d = new Date(dateStr);
+            const d = parseLocalDate(dateStr);
             const dow = d.getDay();
             const isWeekday = dow >= 1 && dow <= 5;
             const overrides = (db[dateStr] && db[dateStr].accOverrides) || {};
@@ -398,6 +443,7 @@
         }
 
         function showReport() {
+            checkMidnightRollover();
             const weeklyBody = document.getElementById('report-weekly-body'), monthlyBody = document.getElementById('report-monthly-body');
 
             // 이번 달 · 지난 달 비교
