@@ -146,6 +146,21 @@
         };
         const getRealToday = () => toDateKey(new Date());
 
+        // Firebase는 빈 배열/객체를 저장하지 않고 지워버리므로, 클라우드에서 데이터를
+        // 불러온 뒤 특정 날짜의 acc/todo/done/msg/overrides 필드가 사라져 있을 수 있습니다.
+        // 이 함수는 해당 날짜의 필드가 항상 존재하도록 보정해줍니다 (없으면 빈 값으로 채움).
+        function ensureDay(dateStr) {
+            if (!db[dateStr]) db[dateStr] = {};
+            const d = db[dateStr];
+            if (!Array.isArray(d.acc)) d.acc = [];
+            if (!Array.isArray(d.todo)) d.todo = [];
+            if (!Array.isArray(d.done)) d.done = [];
+            if (typeof d.msg !== 'string') d.msg = "";
+            if (!d.accOverrides || typeof d.accOverrides !== 'object') d.accOverrides = {};
+            if (!d.todoOverrides || typeof d.todoOverrides !== 'object') d.todoOverrides = {};
+            return d;
+        }
+
         // ===== Firebase 설정 =====
         // 아래 firebaseConfig 값을 본인의 Firebase 프로젝트 설정값으로 교체하세요.
         // (Firebase 콘솔 > 프로젝트 설정 > 내 앱 > SDK 설정 및 구성 에서 확인)
@@ -257,6 +272,7 @@
         }
 
         function editFixedAccToday(id) {
+            ensureDay(selectedDate);
             const item = fixedAcc.find(x => x.id === id);
             if (!item) return;
             const ov = (db[selectedDate].accOverrides && db[selectedDate].accOverrides[id]) || {};
@@ -274,11 +290,13 @@
         }
 
         function revertFixedAccToday(id) {
+            ensureDay(selectedDate);
             if (db[selectedDate].accOverrides) delete db[selectedDate].accOverrides[id];
             save('day'); render();
         }
 
         function editFixedTodoToday(id) {
+            ensureDay(selectedDate);
             const item = fixedTodo.find(x => x.id === id);
             if (!item) return;
             const ov = (db[selectedDate].todoOverrides && db[selectedDate].todoOverrides[id]) || {};
@@ -295,6 +313,7 @@
         }
 
         function revertFixedTodoToday(id) {
+            ensureDay(selectedDate);
             if (db[selectedDate].todoOverrides) delete db[selectedDate].todoOverrides[id];
             save('day'); render();
         }
@@ -317,7 +336,7 @@
         }
 
         function render() {
-            if (!db[selectedDate]) db[selectedDate] = { acc: [], todo: [], done: [], msg: "" };
+            ensureDay(selectedDate);
             document.getElementById('current-focus-date').innerText = selectedDate.replace(/-/g, '.');
             document.getElementById('daily-msg-text').innerText = getEffectiveMsg(selectedDate);
             renderDayStrip();
@@ -409,10 +428,11 @@
 
         function setToday() { realToday = getRealToday(); selectedDate = realToday; render(); }
         function moveDay(v) { let d = parseLocalDate(selectedDate); d.setDate(d.getDate() + v); selectedDate = toDateKey(d); render(); }
-        function editDailyMsg() { const n = prompt(`${selectedDate}의 한마디 수정`, getEffectiveMsg(selectedDate)); if (n !== null) { db[selectedDate].msg = n; save('day'); render(); } }
-        function toggleTodo(id) { const dArr = db[selectedDate].done; const idx = dArr.indexOf(String(id)); if (idx > -1) dArr.splice(idx, 1); else dArr.push(String(id)); save('day'); render(); }
+        function editDailyMsg() { ensureDay(selectedDate); const n = prompt(`${selectedDate}의 한마디 수정`, getEffectiveMsg(selectedDate)); if (n !== null) { db[selectedDate].msg = n; save('day'); render(); } }
+        function toggleTodo(id) { ensureDay(selectedDate); const dArr = db[selectedDate].done; const idx = dArr.indexOf(String(id)); if (idx > -1) dArr.splice(idx, 1); else dArr.push(String(id)); save('day'); render(); }
 
         function addDailyEntry() {
+            ensureDay(selectedDate);
             const d = document.getElementById('acc-desc'), a = document.getElementById('acc-amount'), c = document.getElementById('acc-cat'), f = document.getElementById('acc-fixed'), p = document.getElementById('acc-fixed-period');
             if (!d.value || !a.value) return;
             const newItem = { id: Date.now(), category: c.value, desc: d.value, amount: parseInt(a.value), isFixed: f.checked, fixedPeriod: p.value };
@@ -421,6 +441,7 @@
         }
 
         function addDailyTodo() {
+            ensureDay(selectedDate);
             const i = document.getElementById('todo-input'), t = document.getElementById('todo-time'), r = document.getElementById('todo-repeat'), p = document.getElementById('todo-repeat-period');
             if (!i.value) return;
             const newItem = { id: Date.now(), time: t.value, text: i.value, isFixed: r.checked, fixedPeriod: p.value };
@@ -428,8 +449,8 @@
             save(r.checked ? 'fixedTodo' : 'day'); render(); i.value = ''; r.checked = false;
         }
 
-        function removeAcc(f, id) { if (f) fixedAcc = fixedAcc.filter(x => x.id !== id); else db[selectedDate].acc = db[selectedDate].acc.filter(x => x.id !== id); save(f ? 'fixedAcc' : 'day'); render(); }
-        function removeTodo(f, id) { if (f) fixedTodo = fixedTodo.filter(x => x.id !== id); else db[selectedDate].todo = db[selectedDate].todo.filter(x => x.id !== id); save(f ? 'fixedTodo' : 'day'); render(); }
+        function removeAcc(f, id) { ensureDay(selectedDate); if (f) fixedAcc = fixedAcc.filter(x => x.id !== id); else db[selectedDate].acc = db[selectedDate].acc.filter(x => x.id !== id); save(f ? 'fixedAcc' : 'day'); render(); }
+        function removeTodo(f, id) { ensureDay(selectedDate); if (f) fixedTodo = fixedTodo.filter(x => x.id !== id); else db[selectedDate].todo = db[selectedDate].todo.filter(x => x.id !== id); save(f ? 'fixedTodo' : 'day'); render(); }
         function switchTab(t) { document.querySelectorAll('.m-tab').forEach(b => b.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); event.currentTarget.classList.add('active'); document.getElementById('section-' + t).classList.add('active'); }
         function closeModal() { document.getElementById('report-modal').style.display = 'none'; }
 
