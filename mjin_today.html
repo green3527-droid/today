@@ -6,6 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Kakao Daily Manager</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .btn-icon-edit { background: none; border: none; font-size: 14px; cursor: pointer; padding: 2px 5px; opacity: 0.8; }
+        .btn-icon-edit:hover { opacity: 1; }
+        .ov-badge { color: #e07b00; font-weight: 600; font-size: 11px; }
+        .report-row.current-month { font-weight: 700; }
+    </style>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
@@ -114,7 +120,12 @@
     <div id="report-modal" class="modal">
         <div class="modal-content">
             <h3>소비 리포트</h3>
+            <h4 style="margin:16px 0 8px;">이번 달 · 지난 달 비교</h4>
+            <div id="report-compare-body" style="display:flex; gap:10px;"></div>
+            <div id="report-compare-diff" style="text-align:center; font-size:13px; margin-top:6px; color:#888;"></div>
+            <h4 style="margin:16px 0 8px;">최근 7일</h4>
             <div id="report-weekly-body"></div>
+            <h4 style="margin:16px 0 8px;">월별 합계</h4>
             <div class="report-month-box" id="report-monthly-body"></div><button onclick="closeModal()"
                 class="btn-close">닫기</button>
         </div>
@@ -179,6 +190,49 @@
             });
         }
 
+        function editFixedAccToday(id) {
+            const item = fixedAcc.find(x => x.id === id);
+            if (!item) return;
+            const ov = (db[selectedDate].accOverrides && db[selectedDate].accOverrides[id]) || {};
+            const curDesc = ov.desc !== undefined ? ov.desc : item.desc;
+            const curAmount = ov.amount !== undefined ? ov.amount : item.amount;
+            const newDesc = prompt(`${selectedDate}에만 적용할 내역 (원본: ${item.desc})`, curDesc);
+            if (newDesc === null) return;
+            const newAmountStr = prompt(`${selectedDate}에만 적용할 금액 (원본: ${item.amount})`, curAmount);
+            if (newAmountStr === null) return;
+            const newAmount = parseInt(newAmountStr);
+            if (!newDesc || isNaN(newAmount)) { alert('내역과 금액을 올바르게 입력해주세요.'); return; }
+            if (!db[selectedDate].accOverrides) db[selectedDate].accOverrides = {};
+            db[selectedDate].accOverrides[id] = { desc: newDesc, amount: newAmount };
+            save(); render();
+        }
+
+        function revertFixedAccToday(id) {
+            if (db[selectedDate].accOverrides) delete db[selectedDate].accOverrides[id];
+            save(); render();
+        }
+
+        function editFixedTodoToday(id) {
+            const item = fixedTodo.find(x => x.id === id);
+            if (!item) return;
+            const ov = (db[selectedDate].todoOverrides && db[selectedDate].todoOverrides[id]) || {};
+            const curText = ov.text !== undefined ? ov.text : item.text;
+            const curTime = ov.time !== undefined ? ov.time : item.time;
+            const newText = prompt(`${selectedDate}에만 적용할 할 일 (원본: ${item.text})`, curText);
+            if (newText === null) return;
+            const newTime = prompt(`${selectedDate}에만 적용할 시간 HH:MM (원본: ${item.time})`, curTime);
+            if (newTime === null) return;
+            if (!newText || !newTime) { alert('내용과 시간을 올바르게 입력해주세요.'); return; }
+            if (!db[selectedDate].todoOverrides) db[selectedDate].todoOverrides = {};
+            db[selectedDate].todoOverrides[id] = { text: newText, time: newTime };
+            save(); render();
+        }
+
+        function revertFixedTodoToday(id) {
+            if (db[selectedDate].todoOverrides) delete db[selectedDate].todoOverrides[id];
+            save(); render();
+        }
+
         function resetAllData() {
             if (!confirm('가계부와 할일 데이터를 모두 삭제하고 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
             if (!confirm('정말로 진행할까요? 모든 기기에서 데이터가 사라집니다.')) return;
@@ -208,25 +262,36 @@
             // 1. 가계부 렌더링
             const accList = document.getElementById('acc-list'); accList.innerHTML = '';
             let dayTotal = 0;
+            const accOverrides = db[selectedDate].accOverrides || {};
             const activeFixedAcc = fixedAcc.filter(item => {
                 if (item.fixedPeriod === 'weekday') return isWeekday;
                 return true;
+            }).map(item => {
+                const ov = accOverrides[item.id];
+                return ov ? { ...item, desc: ov.desc, amount: ov.amount, isOverridden: true } : item;
             });
             const sortedAcc = [...activeFixedAcc, ...db[selectedDate].acc].sort((a, b) => b.id - a.id);
             sortedAcc.forEach((i) => {
                 dayTotal += i.amount;
                 const li = document.createElement('li'); li.className = 'list-item';
                 const periodLabel = i.fixedPeriod === 'weekday' ? '(월~금)' : '(고정)';
-                li.innerHTML = `<div class="item-info"><small>${i.category} ${i.isFixed ? periodLabel : ''}</small><div class="name">${i.desc}</div></div><div class="amount-area"><span>${i.amount.toLocaleString()}원</span><button class="btn-icon-del" onclick="removeAcc(${i.isFixed}, ${i.id})">🗑️</button></div>`;
+                const overrideLabel = i.isOverridden ? ' <span class="ov-badge">✎오늘만수정</span>' : '';
+                const editBtn = i.isFixed ? `<button class="btn-icon-edit" onclick="editFixedAccToday(${i.id})" title="오늘만 수정">✏️</button>` : '';
+                const revertBtn = i.isOverridden ? `<button class="btn-icon-edit" onclick="revertFixedAccToday(${i.id})" title="오늘 수정 취소">↩️</button>` : '';
+                li.innerHTML = `<div class="item-info"><small>${i.category} ${i.isFixed ? periodLabel : ''}${overrideLabel}</small><div class="name">${i.desc}</div></div><div class="amount-area"><span>${i.amount.toLocaleString()}원</span>${editBtn}${revertBtn}<button class="btn-icon-del" onclick="removeAcc(${i.isFixed}, ${i.id})">🗑️</button></div>`;
                 accList.appendChild(li);
             });
             document.getElementById('day-expense').innerText = dayTotal.toLocaleString() + "원";
 
             // 2. 할 일 렌더링 (시간 내림차순 정렬 적용)
             const todoList = document.getElementById('todo-list'); todoList.innerHTML = '';
+            const todoOverrides = db[selectedDate].todoOverrides || {};
             const activeFixedTodo = fixedTodo.filter(item => {
                 if (item.fixedPeriod === 'weekday') return isWeekday;
                 return true;
+            }).map(item => {
+                const ov = todoOverrides[item.id];
+                return ov ? { ...item, time: ov.time, text: ov.text, isOverridden: true } : item;
             });
             
             // [개선 포인트] 시간 기준 내림차순 정렬
@@ -244,16 +309,19 @@
                 const isDone = db[selectedDate].done.includes(String(t.id));
                 if (!isDone) pendingCount++;
                 const li = document.createElement('li'); li.className = `list-item ${isDone ? 'done' : ''}`;
+                const overrideLabel = t.isOverridden ? ' <span class="ov-badge">✎오늘만수정</span>' : '';
+                const editBtn = t.isFixed ? `<button class="btn-icon-edit" onclick="editFixedTodoToday(${t.id})" title="오늘만 수정">✏️</button>` : '';
+                const revertBtn = t.isOverridden ? `<button class="btn-icon-edit" onclick="revertFixedTodoToday(${t.id})" title="오늘 수정 취소">↩️</button>` : '';
                 
                 li.innerHTML = `
                     <div class="todo-item" onclick="toggleTodo('${t.id}')">
                         <div class="t-icon"></div>
                         <div class="item-info">
-                            <small>${t.time} ${t.isFixed ? '(반복)' : ''}</small>
+                            <small>${t.time} ${t.isFixed ? '(반복)' : ''}${overrideLabel}</small>
                             <div class="name">${t.text}</div>
                         </div>
                     </div>
-                    <button class="btn-icon-del" onclick="removeTodo(${t.isFixed}, ${t.id})">🗑️</button>`;
+                    ${editBtn}${revertBtn}<button class="btn-icon-del" onclick="removeTodo(${t.isFixed}, ${t.id})">🗑️</button>`;
                 todoList.appendChild(li);
             });
             document.getElementById('day-todo-count').innerText = pendingCount + "개";
@@ -299,34 +367,77 @@
         function switchTab(t) { document.querySelectorAll('.m-tab').forEach(b => b.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); event.currentTarget.classList.add('active'); document.getElementById('section-' + t).classList.add('active'); }
         function closeModal() { document.getElementById('report-modal').style.display = 'none'; }
 
+        function getDayFixedTotal(dateStr) {
+            const d = new Date(dateStr);
+            const dow = d.getDay();
+            const isWeekday = dow >= 1 && dow <= 5;
+            const overrides = (db[dateStr] && db[dateStr].accOverrides) || {};
+            return fixedAcc.filter(item => item.fixedPeriod === 'weekday' ? isWeekday : true)
+                .reduce((sum, item) => {
+                    const ov = overrides[item.id];
+                    return sum + (ov && ov.amount !== undefined ? ov.amount : item.amount);
+                }, 0);
+        }
+
+        function getMonthlyTotal(monthStr) {
+            const [y, m] = monthStr.split('-').map(Number);
+            const daysInMonth = new Date(y, m, 0).getDate();
+            let total = 0;
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dK = toDateKey(new Date(y, m - 1, day));
+                total += getDayFixedTotal(dK);
+                if (db[dK]) total += (db[dK].acc || []).reduce((a, b) => a + b.amount, 0);
+            }
+            return total;
+        }
+
+        function shiftMonth(monthStr, delta) {
+            const [y, m] = monthStr.split('-').map(Number);
+            const d = new Date(y, m - 1 + delta, 1);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        }
+
         function showReport() {
             const weeklyBody = document.getElementById('report-weekly-body'), monthlyBody = document.getElementById('report-monthly-body');
+
+            // 이번 달 · 지난 달 비교
+            const thisMonthStr = realToday.substring(0, 7);
+            const lastMonthStr = shiftMonth(thisMonthStr, -1);
+            const thisMonthTotal = getMonthlyTotal(thisMonthStr);
+            const lastMonthTotal = getMonthlyTotal(lastMonthStr);
+            document.getElementById('report-compare-body').innerHTML = `
+                <div class="month-card" style="flex:1; text-align:center; padding:10px; background:rgba(0,0,0,0.03); border-radius:10px;">
+                    <div class="month-info-sub">이번 달 (${thisMonthStr})</div>
+                    <div class="month-main-val">${thisMonthTotal.toLocaleString()}원</div>
+                </div>
+                <div class="month-card" style="flex:1; text-align:center; padding:10px; background:rgba(0,0,0,0.03); border-radius:10px;">
+                    <div class="month-info-sub">지난 달 (${lastMonthStr})</div>
+                    <div class="month-main-val">${lastMonthTotal.toLocaleString()}원</div>
+                </div>`;
+            const diff = thisMonthTotal - lastMonthTotal;
+            const diffText = diff === 0 ? '지난 달과 동일해요' : (diff > 0 ? `지난 달보다 ${diff.toLocaleString()}원 더 썼어요` : `지난 달보다 ${Math.abs(diff).toLocaleString()}원 덜 썼어요`);
+            document.getElementById('report-compare-diff').innerText = diffText;
+
             weeklyBody.innerHTML = ''; let weekTotal = 0;
             for (let i = 0; i < 7; i++) {
                 let temp = new Date(); temp.setDate(temp.getDate() - i);
                 let dK = toDateKey(temp);
-                let dOfWeek = temp.getDay();
-                let dExp = fixedAcc.filter(item => {
-                    if (item.fixedPeriod === 'weekday') return dOfWeek >= 1 && dOfWeek <= 5;
-                    return true;
-                }).reduce((a, b) => a + b.amount, 0);
+                let dExp = getDayFixedTotal(dK);
                 if (db[dK]) dExp += (db[dK].acc || []).reduce((a, b) => a + b.amount, 0);
                 weekTotal += dExp;
                 weeklyBody.innerHTML += `<div class="report-row"><span>${dK.substring(5)}</span><strong>${dExp.toLocaleString()}원</strong></div>`;
             }
-            const curM = selectedDate.substring(0, 7); let monT = 0;
-            Object.keys(db).forEach(k => {
-                if (k.startsWith(curM)) {
-                    const dObj = new Date(k);
-                    const dow = dObj.getDay();
-                    const fExp = fixedAcc.filter(item => {
-                        if (item.fixedPeriod === 'weekday') return dow >= 1 && dow <= 5;
-                        return true;
-                    }).reduce((a, b) => a + b.amount, 0);
-                    monT += fExp + (db[k].acc || []).reduce((s, i) => s + i.amount, 0);
-                }
+
+            // 월별 합계 리스트 (데이터가 있는 달 + 이번 달, 최근 순)
+            const monthSet = new Set(Object.keys(db).map(k => k.substring(0, 7)));
+            monthSet.add(realToday.substring(0, 7));
+            const months = [...monthSet].sort().reverse();
+            monthlyBody.innerHTML = '';
+            months.forEach(monthStr => {
+                const total = getMonthlyTotal(monthStr);
+                const isCurrent = monthStr === realToday.substring(0, 7);
+                monthlyBody.innerHTML += `<div class="report-row_ ${isCurrent ? 'current-month' : ''}"><span>${monthStr}${isCurrent ? ' (이번 달)' : ''}</span><strong>${total.toLocaleString()}원</strong></div>`;
             });
-            monthlyBody.innerHTML = `<div class="month-main-val">${monT.toLocaleString()}원</div><div class="month-info-sub">이번 달 합계 (${curM})</div>`;
             document.getElementById('report-modal').style.display = 'flex';
         }
         document.getElementById('theme-toggle').addEventListener('click', () => { document.body.classList.toggle('dark-mode'); document.getElementById('theme-toggle').innerText = document.body.classList.contains('dark-mode') ? '☀️' : '🌙'; });
