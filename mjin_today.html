@@ -228,8 +228,18 @@
         }
         setInterval(() => { checkMidnightRollover(); render(); }, 60 * 1000);
 
-        function save() {
-            dbRef.set({ db, fixedAcc, fixedTodo }).catch((err) => {
+        // scope를 지정하면 바뀐 부분만 업로드해서 훨씬 빠르고 가볍게 동기화됩니다.
+        // 'day'      : 현재 선택된 날짜(db[selectedDate])만 저장
+        // 'fixedAcc' : 고정지출 목록만 저장
+        // 'fixedTodo': 반복일정 목록만 저장
+        // (생략 시)  : 전체 저장 (초기화 등 예외적인 경우에만 사용)
+        function save(scope) {
+            let ref, payload;
+            if (scope === 'day') { ref = dbRef.child('db/' + selectedDate); payload = db[selectedDate]; }
+            else if (scope === 'fixedAcc') { ref = dbRef.child('fixedAcc'); payload = fixedAcc; }
+            else if (scope === 'fixedTodo') { ref = dbRef.child('fixedTodo'); payload = fixedTodo; }
+            else { ref = dbRef; payload = { db, fixedAcc, fixedTodo }; }
+            ref.set(payload).catch((err) => {
                 console.error(err);
                 if (syncStatusEl()) syncStatusEl().innerText = '⚠️ 저장 실패';
             });
@@ -249,12 +259,12 @@
             if (!newDesc || isNaN(newAmount)) { alert('내역과 금액을 올바르게 입력해주세요.'); return; }
             if (!db[selectedDate].accOverrides) db[selectedDate].accOverrides = {};
             db[selectedDate].accOverrides[id] = { desc: newDesc, amount: newAmount };
-            save(); render();
+            save('day'); render();
         }
 
         function revertFixedAccToday(id) {
             if (db[selectedDate].accOverrides) delete db[selectedDate].accOverrides[id];
-            save(); render();
+            save('day'); render();
         }
 
         function editFixedTodoToday(id) {
@@ -270,12 +280,12 @@
             if (!newText || !newTime) { alert('내용과 시간을 올바르게 입력해주세요.'); return; }
             if (!db[selectedDate].todoOverrides) db[selectedDate].todoOverrides = {};
             db[selectedDate].todoOverrides[id] = { text: newText, time: newTime };
-            save(); render();
+            save('day'); render();
         }
 
         function revertFixedTodoToday(id) {
             if (db[selectedDate].todoOverrides) delete db[selectedDate].todoOverrides[id];
-            save(); render();
+            save('day'); render();
         }
 
         function resetAllData() {
@@ -388,15 +398,15 @@
 
         function setToday() { realToday = getRealToday(); selectedDate = realToday; render(); }
         function moveDay(v) { let d = parseLocalDate(selectedDate); d.setDate(d.getDate() + v); selectedDate = toDateKey(d); render(); }
-        function editDailyMsg() { const n = prompt(`${selectedDate}의 한마디 수정`, getEffectiveMsg(selectedDate)); if (n !== null) { db[selectedDate].msg = n; save(); render(); } }
-        function toggleTodo(id) { const dArr = db[selectedDate].done; const idx = dArr.indexOf(String(id)); if (idx > -1) dArr.splice(idx, 1); else dArr.push(String(id)); save(); render(); }
+        function editDailyMsg() { const n = prompt(`${selectedDate}의 한마디 수정`, getEffectiveMsg(selectedDate)); if (n !== null) { db[selectedDate].msg = n; save('day'); render(); } }
+        function toggleTodo(id) { const dArr = db[selectedDate].done; const idx = dArr.indexOf(String(id)); if (idx > -1) dArr.splice(idx, 1); else dArr.push(String(id)); save('day'); render(); }
 
         function addDailyEntry() {
             const d = document.getElementById('acc-desc'), a = document.getElementById('acc-amount'), c = document.getElementById('acc-cat'), f = document.getElementById('acc-fixed'), p = document.getElementById('acc-fixed-period');
             if (!d.value || !a.value) return;
             const newItem = { id: Date.now(), category: c.value, desc: d.value, amount: parseInt(a.value), isFixed: f.checked, fixedPeriod: p.value };
             if (f.checked) fixedAcc.push(newItem); else db[selectedDate].acc.push(newItem);
-            save(); render(); d.value = ''; a.value = ''; f.checked = false;
+            save(f.checked ? 'fixedAcc' : 'day'); render(); d.value = ''; a.value = ''; f.checked = false;
         }
 
         function addDailyTodo() {
@@ -404,11 +414,11 @@
             if (!i.value) return;
             const newItem = { id: Date.now(), time: t.value, text: i.value, isFixed: r.checked, fixedPeriod: p.value };
             if (r.checked) fixedTodo.push(newItem); else db[selectedDate].todo.push(newItem);
-            save(); render(); i.value = ''; r.checked = false;
+            save(r.checked ? 'fixedTodo' : 'day'); render(); i.value = ''; r.checked = false;
         }
 
-        function removeAcc(f, id) { if (f) fixedAcc = fixedAcc.filter(x => x.id !== id); else db[selectedDate].acc = db[selectedDate].acc.filter(x => x.id !== id); save(); render(); }
-        function removeTodo(f, id) { if (f) fixedTodo = fixedTodo.filter(x => x.id !== id); else db[selectedDate].todo = db[selectedDate].todo.filter(x => x.id !== id); save(); render(); }
+        function removeAcc(f, id) { if (f) fixedAcc = fixedAcc.filter(x => x.id !== id); else db[selectedDate].acc = db[selectedDate].acc.filter(x => x.id !== id); save(f ? 'fixedAcc' : 'day'); render(); }
+        function removeTodo(f, id) { if (f) fixedTodo = fixedTodo.filter(x => x.id !== id); else db[selectedDate].todo = db[selectedDate].todo.filter(x => x.id !== id); save(f ? 'fixedTodo' : 'day'); render(); }
         function switchTab(t) { document.querySelectorAll('.m-tab').forEach(b => b.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); event.currentTarget.classList.add('active'); document.getElementById('section-' + t).classList.add('active'); }
         function closeModal() { document.getElementById('report-modal').style.display = 'none'; }
 
