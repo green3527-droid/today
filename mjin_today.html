@@ -20,6 +20,7 @@
             </div>
             <div class="header-right">
                 <button onclick="showReport()" class="btn-report">📊 리포트</button>
+                <button onclick="resetAllData()" class="btn-theme" title="모든 데이터 초기화">🗑️</button>
                 <button id="theme-toggle" class="btn-theme">🌙</button>
             </div>
         </header>
@@ -176,6 +177,17 @@
                 console.error(err);
                 if (syncStatusEl()) syncStatusEl().innerText = '⚠️ 저장 실패';
             });
+        }
+
+        function resetAllData() {
+            if (!confirm('가계부와 할일 데이터를 모두 삭제하고 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+            if (!confirm('정말로 진행할까요? 모든 기기에서 데이터가 사라집니다.')) return;
+            db = {};
+            fixedAcc = [];
+            fixedTodo = [];
+            save();
+            render();
+            alert('초기화되었습니다.');
         }
 
         function getEffectiveMsg(dateStr) {
