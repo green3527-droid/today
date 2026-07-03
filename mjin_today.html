@@ -23,6 +23,7 @@
             <div class="header-left">
                 <h1 class="logo">mjin</h1>
                 <span id="sync-status" style="font-size:11px; color:#999; margin-left:6px;">연결 중...</span>
+                <button onclick="location.reload()" style="background:none;border:none;font-size:11px;cursor:pointer;margin-left:4px;padding:0 4px;" title="다시 연결">🔄</button>
             </div>
             <div class="header-right">
                 <button onclick="showReport()" class="btn-report">📊 리포트</button>
@@ -160,6 +161,15 @@
         // 데이터가 저장될 위치(경로). 다른 사람과 겹치지 않도록 임의의 문자열로 바꿔도 됩니다.
         const SYNC_PATH = "mjin_daily_data";
 
+        const syncStatusEl = () => document.getElementById('sync-status');
+
+        // Firebase SDK 자체가 안 불러와진 경우 (광고 차단 확장, 네트워크 문제 등) 바로 알려줌
+        if (typeof firebase === 'undefined') {
+            if (syncStatusEl()) syncStatusEl().innerText = '⚠️ Firebase 로딩 실패 (광고차단/네트워크 확인)';
+            alert('Firebase 스크립트를 불러오지 못했습니다.\n광고 차단 확장 프로그램을 꺼보거나, 인터넷 연결을 확인해주세요.');
+            throw new Error('Firebase SDK가 로드되지 않았습니다.');
+        }
+
         firebase.initializeApp(firebaseConfig);
         const dbRef = firebase.database().ref(SYNC_PATH);
 
@@ -169,7 +179,6 @@
         let realToday = getRealToday();
         let selectedDate = realToday;
 
-        const syncStatusEl = () => document.getElementById('sync-status');
         let hasLoadedOnce = false;
 
         // Firebase 실시간 리스너: PC/모바일 어느 쪽에서 바뀌든 즉시 반영됨
@@ -185,15 +194,17 @@
             hasLoadedOnce = true;
             render();
         }, (error) => {
+            // 여기 에러 코드가 화면에 그대로 뜨도록 해서 원인을 바로 알 수 있게 함
+            // (가장 흔한 원인: PERMISSION_DENIED = Realtime Database 규칙이 제대로 게시되지 않음)
             console.error(error);
-            if (syncStatusEl()) syncStatusEl().innerText = '⚠️ 연결 실패';
+            if (syncStatusEl()) syncStatusEl().innerText = `⚠️ ${error.code || error.message || '오류'}`;
         });
 
         // 실제 서버 연결 상태를 기준으로 상태 표시 (더 정확함)
         firebase.database().ref('.info/connected').on('value', (snap) => {
             if (!syncStatusEl()) return;
             if (snap.val() === true) {
-                syncStatusEl().innerText = hasLoadedOnce ? '✅ 동기화됨' : '🔄 연결 중...';
+                syncStatusEl().innerText = hasLoadedOnce ? '✅ 동기화됨' : '🔄 연결됨, 데이터 대기중...';
             } else {
                 syncStatusEl().innerText = '🔌 오프라인 (재연결 중...)';
             }
