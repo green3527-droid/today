@@ -45,7 +45,7 @@ body {
 
 /* 헤더 */
 .app-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--card); }
-.logo { font-size: 20px; font-weight: 800; margin: 0; }
+.logo { font-size: 20px; font-weight: 700; margin: 0; }
 #sync-status { font-size: 11px; color: #999; margin-left: 6px; }
 
 /* 주간 스트립 */
@@ -53,18 +53,18 @@ body {
 .strip-item { display: flex; flex-direction: column; align-items: center; width: 14%; padding: 8px 0; cursor: pointer; border-radius: 10px; }
 .strip-item span { font-size: 10px; color: var(--txt2); margin-bottom: 4px; }
 .strip-item strong { font-size: 14px; }
-.strip-item.active { background: var(--yellow); color: #000; font-weight: 800; }
+.strip-item.active { background: var(--yellow); color: #000; font-weight: 700; }
 
 /* 날짜 이동 네비게이션 */
 .week-nav { display: flex; justify-content: center; align-items: center; gap: 20px; padding: 15px; background: var(--card); border-bottom: 1px solid var(--line); }
-.nav-arrow { width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.nav-arrow { width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; }
 .view-date-text { font-size: 16px; font-weight: 700; }
-.btn-today-mini { background: var(--black); color: #fff; border: none; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; margin-left: 8px; }
+.btn-today-mini { background: var(--black); color: #fff; border: none; padding: 3px 10px 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; margin-left: 8px; }
 
 /* 오늘의 한마디 */
 .daily-msg-section { padding: 10px 15px; background: var(--card); cursor: pointer; border-bottom: 1px solid var(--line); }
 .msg-box { background: var(--bg); padding: 12px 15px; border-radius: 10px; display: flex; align-items: center; gap: 10px; }
-#daily-msg-text { margin: 0; font-size: 14px; font-weight: 500; }
+#daily-msg-text { margin: 0; font-size: 14px; font-weight: 400; }
 
 /* 지출/할일 요약 */
 .day-summary { display: flex; padding: 15px; gap: 10px; }
@@ -85,10 +85,10 @@ body {
 .row { display: flex; gap: 8px; }
 .row-sub { display: flex;     justify-content: space-between; }
 .fixed-options { display: flex; align-content: center; justify-content: center; gap: 10px; align-items: center;}
-.check-label{width: 90px; font-size: 14px;}
+.check-label{font-size: 13px; display: flex; gap: 2px;}
 .kakao-input { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: 14px; color: var(--txt1); width: 100%; -webkit-appearance: none; }
 .cat-select { appearance: none; width: 100px; background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23888888" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>'); background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px; }
-.btn-add { background: var(--yellow); border: none; padding: 12px 20px; border-radius: 8px; font-weight: 800; font-size: 14px; cursor: pointer; }
+.btn-add { background: var(--yellow); border: none; padding: 12px 20px; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; }
 
 /* 리스트 아이템 스타일 */
 .kakao-list { list-style: none; padding: 0; margin: 0; width: 100%; }
@@ -96,7 +96,7 @@ body {
 .list-item.done { opacity: 0.4; }
 .item-info { display: flex; flex-direction: column; gap: 4px; flex: 1; }
 .item-info small { color: var(--txt2); font-size: 11px; }
-.item-info .name { font-size: 15px; font-weight: 600; color: var(--txt1); }
+.item-info .name { font-size: 14px; font-weight: 600; color: var(--txt1); }
 .amount-area { display: flex; align-items: center; gap: 10px; font-weight: 700; }
 
 /* 할 일 아이템 */ 
@@ -124,5 +124,5 @@ body {
 .report-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
 .report-month-box { background: var(--yellow); border-radius: 12px; padding: 15px; margin-top: 15px; color: #000; }
 .month-main-val { font-size: 20px; font-weight: 900; }
-.month-info-sub { font-size: 11px; opacity: 0.8; font-weight: 600; }
+.month-info-sub { font-size: 11px; opacity: 0.8; font-weight: 700; }
 .btn-close { margin-top: 20px; width: 100%; background: var(--line); border: none; padding: 15px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 14px; }
