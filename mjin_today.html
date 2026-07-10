@@ -14,11 +14,15 @@
         .memo-header { display: flex; justify-content: space-between; width: 100%; align-items: flex-start; }
         .memo-text { white-space: pre-wrap; word-break: break-all; font-size: 14px; line-height: 1.5; color: var(--txt1); flex: 1; }
         .memo-date { font-size: 10px; color: var(--txt2); }
+        /* 로딩 표시 */
+        #loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); display:flex; justify-content:center; align-items:center; z-index:9999; font-weight:bold; }
     </style>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
 <body>
+    <div id="loading-overlay">데이터 동기화 중...</div>
+
     <div class="mobile-container">
         <header class="app-header">
             <div class="header-left">
@@ -118,7 +122,6 @@
         </main>
     </div>
 
-    <!-- 리포트 모달 -->
     <div id="report-modal" class="modal">
         <div class="modal-content">
             <h3>소비 리포트</h3>
@@ -134,6 +137,7 @@
     </div>
 
     <script>
+        // 날짜 키 생성 공통 함수
         const toDateKey = (date) => {
             const y = date.getFullYear();
             const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -145,6 +149,7 @@
             return new Date(y, m - 1, d);
         };
 
+        // Firebase 설정 (기존값 유지)
         const firebaseConfig = {
             apiKey: "AIzaSyCRUUURJjH1r5YPe4lZdmZgWDehALSn43I",
             authDomain: "mjin-today.firebaseapp.com",
@@ -162,9 +167,9 @@
         let db = {}, fixedAcc = [], fixedTodo = [], memos = [];
         let realToday = toDateKey(new Date());
         let selectedDate = realToday;
-        let isInitialized = false; // 안전장치
+        let isInitialized = false;
 
-        // Firebase 데이터 수신 (최초 1회 및 실시간)
+        // Firebase 데이터 수신 (앱 시작의 핵심)
         dbRef.on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
@@ -174,17 +179,28 @@
                 memos = data.memos || [];
             }
             isInitialized = true;
+            document.getElementById('loading-overlay').style.display = 'none';
             document.getElementById('sync-status').innerText = '✅ 동기화됨';
             render();
         });
 
+        // 날짜별 데이터 구조 보정 (불러온 데이터가 있을 경우엔 유지, 없을 때만 초기화)
         function ensureDay(dateStr) {
-            if (!db[dateStr]) db[dateStr] = { acc: [], todo: [], done: [], msg: "", accOverrides: {}, todoOverrides: {} };
+            if (!db[dateStr]) {
+                db[dateStr] = { acc: [], todo: [], done: [], msg: "", accOverrides: {}, todoOverrides: {} };
+            } else {
+                // 기존 데이터 필드 누락 보정
+                if (!db[dateStr].acc) db[dateStr].acc = [];
+                if (!db[dateStr].todo) db[dateStr].todo = [];
+                if (!db[dateStr].done) db[dateStr].done = [];
+                if (!db[dateStr].accOverrides) db[dateStr].accOverrides = {};
+                if (!db[dateStr].todoOverrides) db[dateStr].todoOverrides = {};
+            }
             return db[dateStr];
         }
 
         function save(scope) {
-            if (!isInitialized) return; // 로드 전에는 저장 금지 (데이터 날림 방지)
+            if (!isInitialized) return; 
             let ref, payload;
             if (scope === 'day') { ref = dbRef.child('db/' + selectedDate); payload = db[selectedDate]; }
             else if (scope === 'fixedAcc') { ref = dbRef.child('fixedAcc'); payload = fixedAcc; }
@@ -194,7 +210,7 @@
             ref.set(payload);
         }
 
-        // 메모 추가
+        // --- 기능 함수들 ---
         function addMemo() {
             const input = document.getElementById('memo-input');
             const text = input.value.trim();
@@ -218,7 +234,9 @@
         }
 
         function render() {
+            if (!isInitialized) return;
             ensureDay(selectedDate);
+            
             document.getElementById('current-focus-date').innerText = selectedDate.replace(/-/g, '.');
             document.getElementById('daily-msg-text').innerText = getEffectiveMsg(selectedDate);
             renderDayStrip();
@@ -267,12 +285,12 @@
             });
         }
 
-        // 공통 함수들
         function getEffectiveMsg(dateStr) {
             if (db[dateStr] && db[dateStr].msg) return db[dateStr].msg;
             const pastDates = Object.keys(db).filter(d => d < dateStr && db[d].msg).sort().reverse();
             return pastDates.length > 0 ? db[pastDates[0]].msg : "오늘의 한마디를 입력해보세요.";
         }
+
         function renderDayStrip() {
             const strip = document.getElementById('day-strip'); strip.innerHTML = '';
             let d = parseLocalDate(selectedDate); d.setDate(d.getDate() - d.getDay());
@@ -286,9 +304,26 @@
                 d.setDate(d.getDate() + 1);
             }
         }
-        function setToday() { selectedDate = toDateKey(new Date()); render(); }
-        function moveDay(v) { let d = parseLocalDate(selectedDate); d.setDate(d.getDate() + v); selectedDate = toDateKey(d); render(); }
-        function editDailyMsg() { ensureDay(selectedDate); const n = prompt(`한마디 수정`, getEffectiveMsg(selectedDate)); if (n !== null) { db[selectedDate].msg = n; save('day'); render(); } }
+
+        function setToday() { 
+            realToday = toDateKey(new Date());
+            selectedDate = realToday; 
+            render(); 
+        }
+
+        function moveDay(v) { 
+            let d = parseLocalDate(selectedDate); 
+            d.setDate(d.getDate() + v); 
+            selectedDate = toDateKey(d); 
+            render(); 
+        }
+
+        function editDailyMsg() { 
+            ensureDay(selectedDate); 
+            const n = prompt(`한마디 수정`, getEffectiveMsg(selectedDate)); 
+            if (n !== null) { db[selectedDate].msg = n; save('day'); render(); } 
+        }
+
         function toggleTodo(id) { 
             ensureDay(selectedDate); 
             if(!db[selectedDate].done) db[selectedDate].done = [];
@@ -296,26 +331,32 @@
             if (idx > -1) db[selectedDate].done.splice(idx, 1); else db[selectedDate].done.push(String(id)); 
             save('day'); render(); 
         }
+
         function addDailyEntry() {
-            ensureDay(selectedDate); const d = document.getElementById('acc-desc'), a = document.getElementById('acc-amount'), c = document.getElementById('acc-cat'), f = document.getElementById('acc-fixed'), p = document.getElementById('acc-fixed-period');
+            ensureDay(selectedDate);
+            const d = document.getElementById('acc-desc'), a = document.getElementById('acc-amount'), c = document.getElementById('acc-cat'), f = document.getElementById('acc-fixed'), p = document.getElementById('acc-fixed-period');
             if (!d.value || !a.value) return;
             const newItem = { id: Date.now(), category: c.value, desc: d.value, amount: parseInt(a.value), isFixed: f.checked, fixedPeriod: p.value };
             if (f.checked) fixedAcc.push(newItem); else db[selectedDate].acc.push(newItem);
             save(f.checked ? 'fixedAcc' : 'day'); render(); d.value = ''; a.value = ''; f.checked = false;
         }
+
         function addDailyTodo() {
-            ensureDay(selectedDate); const i = document.getElementById('todo-input'), t = document.getElementById('todo-time'), r = document.getElementById('todo-repeat'), p = document.getElementById('todo-repeat-period');
+            ensureDay(selectedDate);
+            const i = document.getElementById('todo-input'), t = document.getElementById('todo-time'), r = document.getElementById('todo-repeat'), p = document.getElementById('todo-repeat-period');
             if (!i.value) return;
             const newItem = { id: Date.now(), time: t.value, text: i.value, isFixed: r.checked, fixedPeriod: p.value };
             if (r.checked) fixedTodo.push(newItem); else db[selectedDate].todo.push(newItem);
             save(r.checked ? 'fixedTodo' : 'day'); render(); i.value = ''; r.checked = false;
         }
-        function removeAcc(f, id) { if (f) fixedAcc = fixedAcc.filter(x => x.id !== id); else db[selectedDate].acc = db[selectedDate].acc.filter(x => x.id !== id); save(f ? 'fixedAcc' : 'day'); render(); }
-        function removeTodo(f, id) { if (f) fixedTodo = fixedTodo.filter(x => x.id !== id); else db[selectedDate].todo = db[selectedDate].todo.filter(x => x.id !== id); save(f ? 'fixedTodo' : 'day'); render(); }
+
+        function removeAcc(f, id) { ensureDay(selectedDate); if (f) fixedAcc = fixedAcc.filter(x => x.id !== id); else db[selectedDate].acc = db[selectedDate].acc.filter(x => x.id !== id); save(f ? 'fixedAcc' : 'day'); render(); }
+        function removeTodo(f, id) { ensureDay(selectedDate); if (f) fixedTodo = fixedTodo.filter(x => x.id !== id); else db[selectedDate].todo = db[selectedDate].todo.filter(x => x.id !== id); save(f ? 'fixedTodo' : 'day'); render(); }
         function switchTab(t) { document.querySelectorAll('.m-tab').forEach(b => b.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); event.currentTarget.classList.add('active'); document.getElementById('section-' + t).classList.add('active'); }
         function closeModal() { document.getElementById('report-modal').style.display = 'none'; }
         function resetAllData() { if (confirm('정말로 모든 데이터를 삭제하시겠습니까?')) { db = {}; fixedAcc = []; fixedTodo = []; memos = []; save(); render(); } }
 
+        // --- 리포트 계산 로직 ---
         function getDayFixedTotal(dateStr) {
             const d = parseLocalDate(dateStr); const isWeekday = d.getDay() >= 1 && d.getDay() <= 5;
             const ov = (db[dateStr] && db[dateStr].accOverrides) || {};
@@ -331,7 +372,7 @@
         }
         function showReport() {
             const weeklyBody = document.getElementById('report-weekly-body'), monthlyBody = document.getElementById('report-monthly-body'), compBody = document.getElementById('report-compare-body');
-            const thisM = selectedDate.substring(0, 7);
+            const thisM = realToday.substring(0, 7);
             const lastM = (() => { const [y, m] = thisM.split('-').map(Number); const d = new Date(y, m - 2, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
             const thisT = getMonthlyTotal(thisM), lastT = getMonthlyTotal(lastM);
             compBody.innerHTML = `<div style="flex:1;text-align:center;padding:10px;background:rgba(0,0,0,0.03);border-radius:10px;"><div class="month-info-sub">${thisM}</div><div class="month-main-val">${thisT.toLocaleString()}원</div></div><div style="flex:1;text-align:center;padding:10px;background:rgba(0,0,0,0.03);border-radius:10px;"><div class="month-info-sub">${lastM}</div><div class="month-main-val">${lastT.toLocaleString()}원</div></div>`;
@@ -346,6 +387,15 @@
             document.body.classList.toggle('dark-mode');
             document.getElementById('theme-toggle').innerText = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
         });
+
+        // 자정 체크 인터벌
+        setInterval(() => {
+            const now = toDateKey(new Date());
+            if (now !== realToday) {
+                realToday = now;
+                if (selectedDate === realToday) render();
+            }
+        }, 60000);
     </script>
 </body>
 </html>
