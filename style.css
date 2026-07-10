@@ -99,7 +99,7 @@ body {
 .item-info .name { font-size: 15px; font-weight: 600; color: var(--txt1); }
 .amount-area { display: flex; align-items: center; gap: 10px; font-weight: 700; }
 
-/* 할 일 아이템 */
+/* 할 일 아이템 */ 
 .todo-item { display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer; }
 .t-icon { width: 22px; height: 22px; border: 2px solid var(--line); border-radius: 50%; position: relative; flex-shrink: 0; }
 .list-item.done .t-icon { background: var(--yellow); border-color: var(--yellow); }
