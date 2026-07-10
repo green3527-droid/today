@@ -7,6 +7,15 @@
     <link rel="stylesheet" href="style.css">    
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <style>
+        /* 추가된 메모 수정 관련 스타일 */
+        .memo-item { flex-direction: column !important; align-items: flex-start !important; gap: 8px; }
+        .memo-header { display: flex; justify-content: space-between; width: 100%; align-items: flex-start; gap: 10px; }
+        .memo-text { white-space: pre-wrap; word-break: break-all; font-size: 14px; line-height: 1.5; color: var(--txt1); flex: 1; cursor: pointer; }
+        .memo-date { font-size: 10px; color: var(--txt2); }
+        .memo-btns { display: flex; gap: 4px; flex-shrink: 0; }
+        #loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); display:flex; justify-content:center; align-items:center; z-index:9999; font-weight:bold; }
+    </style>
 </head>
 <body>
     <div id="loading-overlay">데이터 동기화 중...</div>
@@ -125,7 +134,6 @@
     </div>
 
     <script>
-        // 날짜 키 생성 공통 함수
         const toDateKey = (date) => {
             const y = date.getFullYear();
             const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -137,7 +145,6 @@
             return new Date(y, m - 1, d);
         };
 
-        // Firebase 설정 (기존값 유지)
         const firebaseConfig = {
             apiKey: "AIzaSyCRUUURJjH1r5YPe4lZdmZgWDehALSn43I",
             authDomain: "mjin-today.firebaseapp.com",
@@ -157,7 +164,6 @@
         let selectedDate = realToday;
         let isInitialized = false;
 
-        // Firebase 데이터 수신 (앱 시작의 핵심)
         dbRef.on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
@@ -172,12 +178,10 @@
             render();
         });
 
-        // 날짜별 데이터 구조 보정 (불러온 데이터가 있을 경우엔 유지, 없을 때만 초기화)
         function ensureDay(dateStr) {
             if (!db[dateStr]) {
                 db[dateStr] = { acc: [], todo: [], done: [], msg: "", accOverrides: {}, todoOverrides: {} };
             } else {
-                // 기존 데이터 필드 누락 보정
                 if (!db[dateStr].acc) db[dateStr].acc = [];
                 if (!db[dateStr].todo) db[dateStr].todo = [];
                 if (!db[dateStr].done) db[dateStr].done = [];
@@ -198,7 +202,7 @@
             ref.set(payload);
         }
 
-        // --- 기능 함수들 ---
+        // --- 메모 기능 ---
         function addMemo() {
             const input = document.getElementById('memo-input');
             const text = input.value.trim();
@@ -219,6 +223,22 @@
             memos = memos.filter(m => m.id !== id);
             save('memos');
             render();
+        }
+
+        // [추가] 메모 수정 함수
+        function editMemo(id) {
+            const memoIndex = memos.findIndex(m => m.id === id);
+            if (memoIndex === -1) return;
+            
+            const newText = prompt("메모를 수정하세요:", memos[memoIndex].text);
+            if (newText !== null && newText.trim() !== "") {
+                memos[memoIndex].text = newText.trim();
+                // 수정 시 날짜 뒤에 (수정됨) 표시
+                const now = new Date().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                memos[memoIndex].date = now + " (수정됨)";
+                save('memos');
+                render();
+            }
         }
 
         function render() {
@@ -259,14 +279,17 @@
             });
             document.getElementById('day-todo-count').innerText = pendingCount + "개";
 
-            // 3. 메모 렌더링
+            // 3. 메모 렌더링 (수정 버튼 및 이벤트 추가)
             const memoList = document.getElementById('memo-list'); memoList.innerHTML = '';
             memos.forEach(m => {
                 memoList.innerHTML += `
                     <li class="list-item memo-item">
                         <div class="memo-header">
-                            <div class="memo-text">${m.text}</div>
-                            <button class="btn-icon-del" onclick="removeMemo(${m.id})">🗑️</button>
+                            <div class="memo-text" onclick="editMemo(${m.id})">${m.text}</div>
+                            <div class="memo-btns">
+                                <button class="btn-icon-edit" onclick="editMemo(${m.id})">✏️</button>
+                                <button class="btn-icon-del" onclick="removeMemo(${m.id})">🗑️</button>
+                            </div>
                         </div>
                         <div class="memo-date">${m.date}</div>
                     </li>`;
@@ -293,25 +316,9 @@
             }
         }
 
-        function setToday() { 
-            realToday = toDateKey(new Date());
-            selectedDate = realToday; 
-            render(); 
-        }
-
-        function moveDay(v) { 
-            let d = parseLocalDate(selectedDate); 
-            d.setDate(d.getDate() + v); 
-            selectedDate = toDateKey(d); 
-            render(); 
-        }
-
-        function editDailyMsg() { 
-            ensureDay(selectedDate); 
-            const n = prompt(`한마디 수정`, getEffectiveMsg(selectedDate)); 
-            if (n !== null) { db[selectedDate].msg = n; save('day'); render(); } 
-        }
-
+        function setToday() { realToday = toDateKey(new Date()); selectedDate = realToday; render(); }
+        function moveDay(v) { let d = parseLocalDate(selectedDate); d.setDate(d.getDate() + v); selectedDate = toDateKey(d); render(); }
+        function editDailyMsg() { ensureDay(selectedDate); const n = prompt(`한마디 수정`, getEffectiveMsg(selectedDate)); if (n !== null) { db[selectedDate].msg = n; save('day'); render(); } }
         function toggleTodo(id) { 
             ensureDay(selectedDate); 
             if(!db[selectedDate].done) db[selectedDate].done = [];
@@ -319,7 +326,6 @@
             if (idx > -1) db[selectedDate].done.splice(idx, 1); else db[selectedDate].done.push(String(id)); 
             save('day'); render(); 
         }
-
         function addDailyEntry() {
             ensureDay(selectedDate);
             const d = document.getElementById('acc-desc'), a = document.getElementById('acc-amount'), c = document.getElementById('acc-cat'), f = document.getElementById('acc-fixed'), p = document.getElementById('acc-fixed-period');
@@ -328,7 +334,6 @@
             if (f.checked) fixedAcc.push(newItem); else db[selectedDate].acc.push(newItem);
             save(f.checked ? 'fixedAcc' : 'day'); render(); d.value = ''; a.value = ''; f.checked = false;
         }
-
         function addDailyTodo() {
             ensureDay(selectedDate);
             const i = document.getElementById('todo-input'), t = document.getElementById('todo-time'), r = document.getElementById('todo-repeat'), p = document.getElementById('todo-repeat-period');
@@ -337,14 +342,12 @@
             if (r.checked) fixedTodo.push(newItem); else db[selectedDate].todo.push(newItem);
             save(r.checked ? 'fixedTodo' : 'day'); render(); i.value = ''; r.checked = false;
         }
-
         function removeAcc(f, id) { ensureDay(selectedDate); if (f) fixedAcc = fixedAcc.filter(x => x.id !== id); else db[selectedDate].acc = db[selectedDate].acc.filter(x => x.id !== id); save(f ? 'fixedAcc' : 'day'); render(); }
         function removeTodo(f, id) { ensureDay(selectedDate); if (f) fixedTodo = fixedTodo.filter(x => x.id !== id); else db[selectedDate].todo = db[selectedDate].todo.filter(x => x.id !== id); save(f ? 'fixedTodo' : 'day'); render(); }
         function switchTab(t) { document.querySelectorAll('.m-tab').forEach(b => b.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); event.currentTarget.classList.add('active'); document.getElementById('section-' + t).classList.add('active'); }
         function closeModal() { document.getElementById('report-modal').style.display = 'none'; }
         function resetAllData() { if (confirm('정말로 모든 데이터를 삭제하시겠습니까?')) { db = {}; fixedAcc = []; fixedTodo = []; memos = []; save(); render(); } }
 
-        // --- 리포트 계산 로직 ---
         function getDayFixedTotal(dateStr) {
             const d = parseLocalDate(dateStr); const isWeekday = d.getDay() >= 1 && d.getDay() <= 5;
             const ov = (db[dateStr] && db[dateStr].accOverrides) || {};
@@ -376,7 +379,6 @@
             document.getElementById('theme-toggle').innerText = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
         });
 
-        // 자정 체크 인터벌
         setInterval(() => {
             const now = toDateKey(new Date());
             if (now !== realToday) {
