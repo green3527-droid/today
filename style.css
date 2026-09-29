@@ -49,7 +49,7 @@ body {
 #sync-status { font-size: 11px; color: #999; margin-left: 6px; }
 
 /* 주간 스트립 */
-.day-strip { display: flex; justify-content: space-around; padding: 10px 5px; background: var(--card); border-bottom: 1px solid var(--line); }
+.day-strip { display: flex; justify-content: space-around; padding: 10px 5px; background: var(--card); border-bottom: 1px solid var(--line); height:80.33px; }
 .strip-item { display: flex; flex-direction: column; align-items: center; width: 14%; padding: 8px 0; cursor: pointer; border-radius: 10px; }
 .strip-item span { font-size: 10px; color: var(--txt2); margin-bottom: 4px; }
 .strip-item strong { font-size: 14px; }
