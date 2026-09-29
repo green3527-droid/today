@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>mjin Daily Manager</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js" defer></script>
     <style>
         /* 추가된 메모 수정 관련 스타일 */
         .memo-item {
@@ -62,7 +62,7 @@
 </head>
 
 <body>
-    <div id="loading-overlay">데이터 동기화 중...</div>
+    <div id="loading-overlay" style="display:none">데이터 동기화 중...</div>
 
     <div class="mobile-container">
         <header class="app-header">
@@ -110,9 +110,9 @@
         </section>
 
         <div class="main-tabs">
-            <button class="m-tab active" onclick="switchTab('acc')">💰 가계부</button>
-            <button class="m-tab" onclick="switchTab('todo')">✅ 할 일</button>
-            <button class="m-tab" onclick="switchTab('memo')">📝 메모</button>
+            <button class="m-tab active" onclick="switchTab('acc', this)">💰 가계부</button>
+            <button class="m-tab" onclick="switchTab('todo', this)">✅ 할 일</button>
+            <button class="m-tab" onclick="switchTab('memo', this)">📝 메모</button>
         </div>
 
         <main class="content">
@@ -228,7 +228,7 @@
         const holidayRequests = new Map();
         const holidayErrors = new Set();
         let calendarMonth = null;
-        function getHoliday(dateKey) { return holidayCache.get(Number(dateKey.slice(0, 4)))?.[dateKey] || ''; }
+        function getHoliday(dateKey) { return (holidayCache.get(Number(dateKey.slice(0, 4))) || {})[dateKey] || ''; }
         async function loadHolidays(year) {
             if (holidayCache.has(year)) return;
             if (holidayRequests.has(year)) return holidayRequests.get(year);
@@ -248,7 +248,7 @@
                     const entries = await response.json();
                     const days = {};
                     for (const entry of entries) {
-                        if (entry.global !== false && entry.types?.includes('Public')) {
+                        if (entry.global !== false && Array.isArray(entry.types) && entry.types.indexOf('Public') !== -1) {
                             days[entry.date] = entry.localName || entry.name;
                         }
                     }
@@ -257,7 +257,7 @@
                     try { localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), days })); } catch (_) { /* 저장소가 가득 차도 표시 */ }
                 } catch (_) {
                     // 이전에 저장된 데이터가 있다면 연결 오류에도 활용합니다.
-                    try { holidayCache.set(year, JSON.parse(localStorage.getItem(cacheKey) || 'null')?.days || {}); }
+                    try { holidayCache.set(year, (JSON.parse(localStorage.getItem(cacheKey) || 'null') || {}).days || {}); }
                     catch (_) { holidayCache.set(year, {}); }
                     holidayErrors.add(year);
                 }
@@ -291,7 +291,7 @@
             const year = calendarMonth.getFullYear(), month = calendarMonth.getMonth();
             document.getElementById('calendar-title').textContent = `${year}년 ${month + 1}월`;
             const grid = document.getElementById('calendar-grid');
-            grid.replaceChildren();
+            grid.innerHTML = '';
             const firstWeekday = new Date(year, month, 1).getDay();
             for (let i = 0; i < firstWeekday; i++) grid.appendChild(document.createElement('span'));
             const days = new Date(year, month + 1, 0).getDate();
@@ -304,7 +304,8 @@
                 button.setAttribute('aria-label', `${key}${holiday ? ` ${holiday} 공휴일` : ''}`);
                 const number = document.createElement('strong'); number.textContent = day;
                 const name = document.createElement('small'); name.textContent = holiday;
-                button.append(number, name);
+                button.appendChild(number);
+                button.appendChild(name);
                 button.onclick = () => chooseCalendarDate(key);
                 grid.appendChild(button);
             }
@@ -391,7 +392,8 @@
             } finally { flushing = false; }
         }
         function connectFirebase() {
-            if (!window.firebase) {
+            if (dbRef) return;
+            if (!window.firebase || !firebase.database) {
                 setSyncStatus('💾 기기에 저장됨 · 연결 대기');
                 return;
             }
@@ -402,10 +404,10 @@
                     receivedRemote = true;
                     if (Object.keys(pending).length) { flushPending(); return; }
                     const data = snapshot.val();
-                    db = data?.db || {};
-                    fixedAcc = asList(data?.fixedAcc);
-                    fixedTodo = asList(data?.fixedTodo);
-                    memos = asList(data?.memos);
+                    db = (data && data.db) || {};
+                    fixedAcc = asList(data && data.fixedAcc);
+                    fixedTodo = asList(data && data.fixedTodo);
+                    memos = asList(data && data.memos);
                     normalizeDays();
                     storeLocal();
                     setSyncStatus('✅ 동기화됨');
@@ -596,7 +598,7 @@
         }
         function removeAcc(f, id) { ensureDay(selectedDate); if (f) fixedAcc = fixedAcc.filter(x => x.id !== id); else db[selectedDate].acc = db[selectedDate].acc.filter(x => x.id !== id); save(f ? 'fixedAcc' : 'day'); render(); }
         function removeTodo(f, id) { ensureDay(selectedDate); if (f) fixedTodo = fixedTodo.filter(x => x.id !== id); else db[selectedDate].todo = db[selectedDate].todo.filter(x => x.id !== id); save(f ? 'fixedTodo' : 'day'); render(); }
-        function switchTab(t) { document.querySelectorAll('.m-tab').forEach(b => b.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); event.currentTarget.classList.add('active'); document.getElementById('section-' + t).classList.add('active'); }
+        function switchTab(t, button) { document.querySelectorAll('.m-tab').forEach(b => b.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); button.classList.add('active'); document.getElementById('section-' + t).classList.add('active'); }
         function closeModal() { document.getElementById('report-modal').style.display = 'none'; }
         function resetAllData() { if (confirm('정말로 모든 데이터를 삭제하시겠습니까?')) { db = {}; fixedAcc = []; fixedTodo = []; memos = []; save(); render(); } }
 
@@ -633,6 +635,7 @@
 
         loadLocal();
         connectFirebase();
+        window.addEventListener('load', () => { if (!dbRef) connectFirebase(); });
         window.addEventListener('online', () => {
             if (!dbRef) connectFirebase();
             else flushPending();
