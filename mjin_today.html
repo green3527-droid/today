@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>mjin Daily Manager</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style(2).css">
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
     <style>
@@ -96,7 +96,7 @@
             </button>
         </nav>
 
-        <!--div id="selected-holiday" class="selected-holiday" hidden></div-->
+        <div id="selected-holiday" class="selected-holiday" hidden></div>
 
         <section class="daily-msg-section" onclick="editDailyMsg()">
             <div class="msg-box"><span class="msg-icon">💬</span>
@@ -323,27 +323,84 @@
         };
         const SYNC_PATH = "mjin_daily_data";
 
-        firebase.initializeApp(firebaseConfig);
-        const dbRef = firebase.database().ref(SYNC_PATH);
-
+        const LOCAL_KEY = 'mjin_daily_data_local_v1';
+        const PENDING_KEY = 'mjin_daily_data_pending_v1';
+        let dbRef = null;
         let db = {}, fixedAcc = [], fixedTodo = [], memos = [];
         let realToday = toDateKey(new Date());
         let selectedDate = realToday;
-        let isInitialized = false;
+        let isInitialized = true;
+        let receivedRemote = false;
+        let pending = {};
+        let flushing = false;
 
-        dbRef.on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                db = data.db || {};
-                fixedAcc = data.fixedAcc || [];
-                fixedTodo = data.fixedTodo || [];
-                memos = data.memos || [];
-            }
-            isInitialized = true;
+        function setSyncStatus(message) { document.getElementById('sync-status').textContent = message; }
+        function storeLocal() {
+            try {
+                localStorage.setItem(LOCAL_KEY, JSON.stringify({ db, fixedAcc, fixedTodo, memos }));
+                localStorage.setItem(PENDING_KEY, JSON.stringify(pending));
+            } catch (_) { setSyncStatus('⚠️ 저장 공간 확인 필요'); }
+        }
+        function loadLocal() {
+            try {
+                const data = JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null');
+                if (data) {
+                    db = data.db || {};
+                    fixedAcc = Array.isArray(data.fixedAcc) ? data.fixedAcc : [];
+                    fixedTodo = Array.isArray(data.fixedTodo) ? data.fixedTodo : [];
+                    memos = Array.isArray(data.memos) ? data.memos : [];
+                }
+                pending = JSON.parse(localStorage.getItem(PENDING_KEY) || '{}') || {};
+            } catch (_) { pending = {}; }
             document.getElementById('loading-overlay').style.display = 'none';
-            document.getElementById('sync-status').innerText = '✅ 동기화됨';
+            setSyncStatus('💾 이 브라우저에 저장');
             render();
-        });
+        }
+        async function flushPending() {
+            if (!dbRef || flushing || !receivedRemote) return;
+            flushing = true;
+            try {
+                while (Object.keys(pending).length) {
+                    const [path, payload] = Object.entries(pending)[0];
+                    await (path === 'all' ? dbRef : dbRef.child(path)).set(payload);
+                    // 저장 중 같은 항목이 다시 바뀌었으면 새 값도 전송합니다.
+                    if (pending[path] === payload) delete pending[path];
+                    storeLocal();
+                }
+                setSyncStatus('✅ 동기화됨');
+            } catch (error) {
+                console.error('데이터 동기화 실패:', error);
+                setSyncStatus('💾 기기에 저장됨 · 동기화 대기');
+            } finally { flushing = false; }
+        }
+        function connectFirebase() {
+            if (!window.firebase) {
+                setSyncStatus('💾 기기에 저장됨 · 연결 대기');
+                return;
+            }
+            try {
+                firebase.initializeApp(firebaseConfig);
+                dbRef = firebase.database().ref(SYNC_PATH);
+                dbRef.on('value', (snapshot) => {
+                    receivedRemote = true;
+                    if (Object.keys(pending).length) { flushPending(); return; }
+                    const data = snapshot.val();
+                    db = data?.db || {};
+                    fixedAcc = Array.isArray(data?.fixedAcc) ? data.fixedAcc : [];
+                    fixedTodo = Array.isArray(data?.fixedTodo) ? data.fixedTodo : [];
+                    memos = Array.isArray(data?.memos) ? data.memos : [];
+                    storeLocal();
+                    setSyncStatus('✅ 동기화됨');
+                    render();
+                }, (error) => {
+                    console.error('Firebase 연결 실패:', error);
+                    setSyncStatus('💾 기기에 저장됨 · 연결 오류');
+                });
+            } catch (error) {
+                console.error('Firebase 초기화 실패:', error);
+                setSyncStatus('💾 기기에 저장됨 · 연결 오류');
+            }
+        }
 
         function ensureDay(dateStr) {
             if (!db[dateStr]) {
@@ -360,13 +417,16 @@
 
         function save(scope) {
             if (!isInitialized) return;
-            let ref, payload;
-            if (scope === 'day') { ref = dbRef.child('db/' + selectedDate); payload = db[selectedDate]; }
-            else if (scope === 'fixedAcc') { ref = dbRef.child('fixedAcc'); payload = fixedAcc; }
-            else if (scope === 'fixedTodo') { ref = dbRef.child('fixedTodo'); payload = fixedTodo; }
-            else if (scope === 'memos') { ref = dbRef.child('memos'); payload = memos; }
-            else { ref = dbRef; payload = { db, fixedAcc, fixedTodo, memos }; }
-            ref.set(payload);
+            let path, payload;
+            if (scope === 'day') { path = 'db/' + selectedDate; payload = structuredClone(db[selectedDate]); }
+            else if (scope === 'fixedAcc') { path = 'fixedAcc'; payload = structuredClone(fixedAcc); }
+            else if (scope === 'fixedTodo') { path = 'fixedTodo'; payload = structuredClone(fixedTodo); }
+            else if (scope === 'memos') { path = 'memos'; payload = structuredClone(memos); }
+            else { path = 'all'; payload = structuredClone({ db, fixedAcc, fixedTodo, memos }); pending = {}; }
+            pending[path] = payload;
+            storeLocal();
+            setSyncStatus(dbRef ? '💾 저장됨 · 동기화 중' : '💾 기기에 저장됨 · 연결 대기');
+            flushPending();
         }
 
         // --- 메모 기능 ---
@@ -551,6 +611,13 @@
         document.getElementById('theme-toggle').addEventListener('click', () => {
             document.body.classList.toggle('dark-mode');
             document.getElementById('theme-toggle').innerText = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
+        });
+
+        loadLocal();
+        connectFirebase();
+        window.addEventListener('online', () => {
+            if (!dbRef) connectFirebase();
+            else flushPending();
         });
 
         setInterval(() => {
