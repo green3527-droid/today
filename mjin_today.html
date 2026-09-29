@@ -272,6 +272,7 @@
         }
         function renderSelectedHoliday() {
             const label = document.getElementById('selected-holiday');
+            if (!label) return;
             const name = getHoliday(selectedDate);
             label.hidden = !name;
             label.textContent = name ? `🇰🇷 ${name} · 공휴일` : '';
