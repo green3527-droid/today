@@ -205,8 +205,8 @@
             <div id="report-compare-diff" style="text-align:center; font-size:13px; margin-top:6px; color:#888;"></div>
             <h4 style="margin:16px 0 8px;">최근 7일</h4>
             <div id="report-weekly-body"></div>
-            <h4 style="margin:16px 0 8px;">월별 합계</h4>
-            <div class="report-month-box" id="report-monthly-body"></div>
+            
+            <div class="report-month-box" id="report-monthly-body" style="display: none;"></div>
             <button onclick="closeModal()" class="btn-close">닫기</button>
         </div>
     </div>
@@ -551,6 +551,14 @@
             return pastDates.length > 0 ? db[pastDates[0]].msg : "오늘의 한마디를 입력해보세요.";
         }
 
+        function getDayTodoCount(dateKey) {
+            const day = db[dateKey] || {};
+            const weekday = parseLocalDate(dateKey).getDay();
+            const isWeekday = weekday >= 1 && weekday <= 5;
+            const repeats = asList(fixedTodo).filter(item => item.fixedPeriod !== 'weekday' || isWeekday);
+            return asList(day.todo).length + repeats.length;
+        }
+
         function renderDayStrip() {
             const strip = document.getElementById('day-strip'); strip.innerHTML = '';
             let d = parseLocalDate(selectedDate); d.setDate(d.getDate() - d.getDay());
@@ -559,9 +567,10 @@
                 const item = document.createElement('div');
                 const holiday = getHoliday(dK);
                 item.className = `strip-item ${dK === selectedDate ? 'active' : ''} ${holiday ? 'holiday' : ''} ${d.getDay() === 0 ? 'sunday' : ''}`;
-                item.title = holiday || '';
-                item.setAttribute('aria-label', `${dK}${holiday ? ` ${holiday} 공휴일` : ''}`);
-                item.innerHTML = `<span>${['일', '월', '화', '수', '목', '금', '토'][d.getDay()]}</span><strong>${d.getDate()}</strong>${holiday ? '<i class="holiday-dot" aria-hidden="true"></i>' : ''}`;
+                const todoCount = getDayTodoCount(dK);
+                item.title = [holiday, todoCount ? `할 일 ${todoCount}개` : ''].filter(Boolean).join(' · ');
+                item.setAttribute('aria-label', `${dK}${holiday ? ` ${holiday} 공휴일` : ''}${todoCount ? ` 할 일 ${todoCount}개` : ''}`);
+                item.innerHTML = `<span>${['일', '월', '화', '수', '목', '금', '토'][d.getDay()]}</span><strong>${d.getDate()}</strong><span class="strip-indicators" aria-hidden="true">${holiday ? '<i class="holiday-dot"></i>' : ''}${todoCount ? '<i class="todo-dot"></i>' : ''}</span>`;
                 item.onclick = () => { selectedDate = dK; render(); };
                 strip.appendChild(item);
                 d.setDate(d.getDate() + 1);
