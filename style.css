@@ -1,664 +1,157 @@
-<!DOCTYPE html>
-<html lang="ko">
+:root { 
+    --yellow: #FEE500; 
+    --black: #1E1E1E; 
+    --bg: #F6F6F6; 
+    --card: #FFFFFF; 
+    --txt1: #222222; 
+    --txt2: #888888; 
+    --line: #EAEAEA; 
+    --radius: 12px; 
+}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>mjin Daily Manager</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js" defer></script>
-    <style>
-        /* 추가된 메모 수정 관련 스타일 */
-        .memo-item {
-            flex-direction: column !important;
-            align-items: flex-start !important;
-            gap: 8px;
-        }
+/* 다크모드 */
+body.dark-mode { 
+    --bg: #111111; 
+    --card: #222222; 
+    --txt1: #EEEEEE; 
+    --txt2: #AAAAAA; 
+    --line: #333333; 
+}
 
-        .memo-header {
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-            align-items: flex-start;
-            gap: 10px;
-        }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
 
-        .memo-text {
-            white-space: pre-wrap;
-            word-break: break-all;
-            font-size: 14px;
-            line-height: 1.5;
-            color: var(--txt1);
-            flex: 1;
-            cursor: pointer;
-        }
+body { 
+    margin: 0; 
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+    background: var(--bg); 
+    color: var(--txt1); 
+    display: flex; 
+    justify-content: center;
+    min-height: 100vh;
+}
 
-        .memo-date {
-            font-size: 10px;
-            color: var(--txt2);
-        }
+/* 모바일 컨테이너 핵심 설정 */
+.mobile-container { 
+    width: 100%; 
+    max-width: 480px; 
+    min-height: 100vh; 
+    background: var(--bg); 
+    display: flex; 
+    flex-direction: column;
+    position: relative;
+    box-shadow: 0 0 20px rgba(0,0,0,0.05);
+}
 
-        .memo-btns {
-            display: flex;
-            gap: 4px;
-            flex-shrink: 0;
-        }
+/* 헤더 */
+.app-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--card); }
+.logo { font-size: 20px; font-weight: 700; margin: 0; }
+#sync-status { font-size: 11px; color: #999; margin-left: 6px; }
 
-        #loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--bg);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            font-weight: bold;
-        }
-    </style>
-</head>
+/* 주간 스트립 */
+.day-strip { display: flex; justify-content: space-around; padding: 10px 5px; background: var(--card); border-bottom: 1px solid var(--line); height:80.33px; }
+.strip-item { display: flex; flex-direction: column; align-items: center; width: 14%; padding: 5px 0; cursor: pointer; border-radius: 10px; }
+.strip-item span { font-size: 10px; color: var(--txt2); margin-bottom: 4px; }
+.strip-item strong { font-size: 14px; }
+.strip-item.active { background: var(--yellow); color: #000; font-weight: 700; }
 
-<body>
-    <div id="loading-overlay" style="display:none">데이터 동기화 중...</div>
+/* 날짜 이동 네비게이션 */
+.week-nav { display: flex; justify-content: center; align-items: center; gap: 20px; padding: 15px; background: var(--card); border-bottom: 1px solid var(--line); }
+.nav-arrow { width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.view-date-text { font-size: 16px; font-weight: 700; }
+.btn-today-mini { background: var(--black); color: #fff; border: none; padding: 4px 10px 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; margin-left: 8px; }
 
-    <div class="mobile-container">
-        <header class="app-header">
-            <div class="header-left">
-                <h1 class="logo">mjin</h1>
-                <span id="sync-status" style="font-size:11px; color:#999; margin-left:6px;">연결 중...</span>
-            </div>
-            <div class="header-right">
-                <button onclick="showReport()" class="btn-report">📊 리포트</button>
-                <button onclick="resetAllData()" class="btn-theme" title="초기화">🗑️</button>
-                <button id="theme-toggle" class="btn-theme">🌙</button>
-            </div>
-        </header>
+/* 오늘의 한마디 */
+.daily-msg-section { padding: 10px 15px; background: var(--card); cursor: pointer; border-bottom: 1px solid var(--line); }
+.msg-box { background: var(--bg); padding: 12px 15px; border-radius: 10px; display: flex; align-items: center; gap: 10px; }
+#daily-msg-text { margin: 0; font-size: 14px; font-weight: 400; }
 
-        <div id="day-strip" class="day-strip"></div>
+/* 지출/할일 요약 */
+.day-summary { display: flex; padding: 15px; gap: 10px; }
+.sum-box { flex: 1; background: var(--card); padding: 15px; border-radius: var(--radius); border: 1px solid var(--line); text-align: center; }
+.sum-box .label { font-size: 11px; color: var(--txt2); display: block; margin-bottom: 5px; }
+.sum-box .val { font-size: 16px; font-weight: 700; }
 
-        <nav class="week-nav">
-            <button onclick="moveDay(-1)" class="nav-arrow arrow-prev" style=" transform: rotate(180deg);">
-                <svg width="6" height="10" viewBox="0 0 6 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path opacity="0.3" d="M1 1L5 5L1 9" stroke="black" />
-                </svg>
-            </button>
-            <div class="nav-center">
-                <button id="current-focus-date" class="view-date-text calendar-open" onclick="openCalendar()" aria-label="월간 달력 열기"></button>
-                <button onclick="setToday()" class="btn-today-mini">오늘</button>
-            </div>
-            <button onclick="moveDay(1)" class="nav-arrow arrow-next">
-                <svg width="6" height="10" viewBox="0 0 6 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path opacity="0.3" d="M1 1L5 5L1 9" stroke="black" />
-                </svg>
-            </button>
-        </nav>
+/* 탭 메뉴 */
+.main-tabs { display: flex; background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
+.m-tab { flex: 1; padding: 15px; border: none; background: none; color: var(--txt2); font-size: 14px; font-weight: 700; cursor: pointer; }
+.m-tab.active { color: var(--txt1); border-bottom: 3px solid var(--yellow); }
 
-        <!--div id="selected-holiday" class="selected-holiday" hidden></div-->
+/* 입력 폼 */
+.content { padding: 15px; flex: 1; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.input-form { background: var(--card); padding: 15px; border-radius: var(--radius); border: 1px solid var(--line); margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; gap: 8px; }
+.row-sub { display: flex;     justify-content: space-between; }
+.fixed-options { display: flex; align-content: center; justify-content: center; gap: 10px; align-items: center;}
+.check-label{font-size: 13px; display: flex; gap: 2px;}
+.kakao-input { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: 14px; color: var(--txt1); width: 100%; -webkit-appearance: none; }
+.cat-select { appearance: none; width: 100px; background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23888888" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>'); background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px; }
+.btn-add { background: var(--yellow); border: none; padding: 12px 20px; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; }
 
-        <section class="daily-msg-section" onclick="editDailyMsg()">
-            <div class="msg-box"><span class="msg-icon">💬</span>
-                <p id="daily-msg-text">한마디를 입력해주세요.</p>
-            </div>
-        </section>
+/* 리스트 아이템 스타일 */
+.kakao-list { list-style: none; padding: 0; margin: 0; width: 100%; }
+.list-item { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.list-item.done { opacity: 0.4; }
+.item-info { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.item-info small { color: var(--txt2); font-size: 11px; }
+.item-info .name { font-size: 14px; font-weight: 600; color: var(--txt1); }
+.amount-area { display: flex; align-items: center; gap: 10px; font-weight: 700; }
 
-        <section class="day-summary">
-            <div class="sum-box"><span class="label">이 날의 지출</span><span class="val" id="day-expense">0</span></div>
-            <div class="sum-box"><span class="label">남은 할일</span><span class="val" id="day-todo-count">0</span></div>
-        </section>
+/* 할 일 아이템 */ 
+.todo-item { display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer; }
+.t-icon { width: 22px; height: 22px; border: 2px solid var(--line); border-radius: 50%; position: relative; flex-shrink: 0; }
+.list-item.done .t-icon { background: var(--yellow); border-color: var(--yellow); }
+.list-item.done .t-icon::after { content: '✓'; position: absolute; left: 4px; top: 0px; font-size: 14px; color: #000; font-weight: bold; }
 
-        <div class="main-tabs">
-            <button class="m-tab active" onclick="switchTab('acc', this)">💰 가계부</button>
-            <button class="m-tab" onclick="switchTab('todo', this)">✅ 할 일</button>
-            <button class="m-tab" onclick="switchTab('memo', this)">📝 메모</button>
-        </div>
+/* 메모 아이템 */
+.memo-item { flex-direction: column !important; align-items: flex-start !important; gap: 10px; }
+.memo-header { display: flex; justify-content: space-between; width: 100%; align-items: flex-start; gap: 10px; }
+.memo-text { white-space: pre-wrap; word-break: break-all; font-size: 14px; line-height: 1.5; color: var(--txt1); cursor: pointer; }
+.memo-date { font-size: 10px; color: var(--txt2); margin-top: 5px; }
 
-        <main class="content">
-            <!-- 가계부 -->
-            <div id="section-acc" class="tab-content active">
-                <div class="input-form">
-                    <div class="row">
-                        <select id="acc-cat" class="kakao-input cat-select" style="flex:0.4">
-                            <option value="식비">🍔 식비</option>
-                            <option value="교통비">🚌 교통비</option>
-                            <option value="문화비">🎬 문화비</option>
-                            <option value="쇼핑">🛍️ 쇼핑</option>
-                            <option value="기타">✨ 기타</option>
-                        </select>
-                        <input type="number" id="acc-amount" class="kakao-input" placeholder="금액"
-                            style="flex:0.6; width: 100%;">
-                    </div>
-                    <div class="row"><input type="text" id="acc-desc" class="kakao-input" placeholder="상세 내역 입력"
-                            style="flex:1"></div>
-                    <div class="row-sub">
-                        <div class="fixed-options">
-                            <label class="check-label"><input type="checkbox" id="acc-fixed"> 고정지출</label>
-                            <select id="acc-fixed-period" class="kakao-input cat-select">
-                                <option value="every">매일</option>
-                                <option value="weekday">월~금</option>
-                            </select>
-                        </div>
-                        <button onclick="addDailyEntry()" class="btn-add">등록</button>
-                    </div>
-                </div>
-                <ul id="acc-list" class="kakao-list"></ul>
-            </div>
+/* 버튼 */
+.btn-icon-del { background: #f1f1f1; border: none; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 14px; flex-shrink: 0; }
+.btn-icon-edit { background: none; border: none; font-size: 16px; cursor: pointer; padding: 4px; }
+.btn-report { background: var(--line); border: none; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; color: var(--txt1); cursor: pointer; }
+.btn-theme { background: var(--line); border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; margin-left: 5px; }
 
-            <!-- 할 일 -->
-            <div id="section-todo" class="tab-content">
-                <div class="input-form">
-                    <div class="row">
-                        <input type="time" id="todo-time" class="kakao-input" style="flex:0.3" value="08:00">
-                        <input type="text" id="todo-input" class="kakao-input" placeholder="할 일 입력"
-                            style="flex:0.7; width: 100%;">
-                    </div>
-                    <div class="row-sub">
-                        <div class="fixed-options">
-                            <label class="check-label"><input type="checkbox" id="todo-repeat"> 반복일정</label>
-                            <select id="todo-repeat-period" class="kakao-input cat-select">
-                                <option value="every">매일</option>
-                                <option value="weekday">월~금</option>
-                            </select>
-                        </div>
-                        <button onclick="addDailyTodo()" class="btn-add">등록</button>
-                    </div>
-                </div>
-                <ul id="todo-list" class="kakao-list"></ul>
-            </div>
+/* 로딩 및 모달 */
+#loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); display:flex; justify-content:center; align-items:center; z-index:9999; font-weight:bold; }
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 100; padding: 20px; }
+.modal-content { background: var(--card); width: 100%; max-width: 350px; padding: 20px; border-radius: 20px; text-align: center; max-height: 85vh; overflow-y: auto; }
+.report-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.report-month-box { background: var(--yellow); border-radius: 12px; padding: 15px; margin-top: 15px; color: #000; }
+.month-main-val { font-size: 20px; font-weight: 900; }
+.month-info-sub { font-size: 11px; opacity: 0.8; font-weight: 700; }
+.btn-close { margin-top: 20px; width: 100%; background: var(--line); border: none; padding: 15px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 14px; }
 
-            <!-- 메모장 -->
-            <div id="section-memo" class="tab-content">
-                <div class="input-form">
-                    <textarea id="memo-input" class="kakao-input" placeholder="여기에 메모를 작성하세요..."
-                        style="width:100%; height:46.03px; resize:none; line-height:1.5; border-radius:10px;"></textarea>
-                    <div class="row-sub">
-                        <span></span>
-                        <button onclick="addMemo()" class="btn-add">메모 저장</button>
-                    </div>
-                </div>
-                <ul id="memo-list" class="kakao-list"></ul>
-            </div>
-        </main>
-    </div>
+/* 한국 공휴일 달력 */
+.calendar-open { border: 0; padding: 0; background: none; color: var(--txt1); cursor: pointer; font-family: inherit; }
+.calendar-open::after { content: ' ▾'; font-size: 12px; color: var(--txt2); }
+.strip-item.holiday, .strip-item.sunday { color: #d83b42; }
+.strip-item.holiday span, .strip-item.sunday span { color: #d83b42; }
+.strip-item.active.holiday, .strip-item.active.sunday { color: #ab242c; }
+.holiday-dot { width: 4px; height: 4px; background: #d83b42; border-radius: 50%; margin-top: 3px; }
+.selected-holiday { padding: 8px 17px; background: var(--card); color: #c83039; font-size: 12px; font-weight: 700; border-bottom: 1px solid var(--line); }
+.selected-holiday[hidden] { display: none; }
+.calendar-content { max-width: 390px; }
+.calendar-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.calendar-heading h3 { margin: 0; font-size: 18px; }
+.calendar-arrow { border: 0; background: var(--bg); color: var(--txt1); font-size: 24px; border-radius: 8px; width: 34px; height: 34px; cursor: pointer; }
+.calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.calendar-weekdays span { font-size: 11px; color: var(--txt2); padding: 5px 0; }
+.calendar-weekdays span:first-child { color: #d83b42; }
+.calendar-day { min-width: 0; min-height: 54px; padding: 5px 2px; border: 0; border-radius: 8px; background: transparent; color: var(--txt1); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; font-family: inherit; }
+.calendar-day strong { font-size: 13px; }
+.calendar-day small { width: 100%; font-size: 9px; line-height: 1.15; overflow-wrap: anywhere; }
+.calendar-day.holiday, .calendar-day.sunday { color: #d83b42; }
+.calendar-day.selected { background: var(--yellow); color: #1e1e1e; }
+.holiday-status { min-height: 16px; margin: 10px 0 0; font-size: 11px; color: var(--txt2); }
 
-    <div id="calendar-modal" class="modal" role="dialog" aria-modal="true" aria-label="월간 달력" onclick="if(event.target === this) closeCalendar()">
-        <div class="modal-content calendar-content">
-            <div class="calendar-heading">
-                <button class="calendar-arrow" onclick="changeCalendarMonth(-1)" aria-label="이전 달">‹</button>
-                <h3 id="calendar-title"></h3>
-                <button class="calendar-arrow" onclick="changeCalendarMonth(1)" aria-label="다음 달">›</button>
-            </div>
-            <div class="calendar-weekdays"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
-            <div id="calendar-grid" class="calendar-grid"></div>
-            <p id="holiday-status" class="holiday-status"></p>
-            <button onclick="closeCalendar()" class="btn-close">닫기</button>
-        </div>
-    </div>
-
-    <div id="report-modal" class="modal">
-        <div class="modal-content">
-            <h3>소비 리포트</h3>
-            <h4 style="margin:16px 0 8px;">이번 달 · 지난 달 비교</h4>
-            <div id="report-compare-body" style="display:flex; gap:10px;"></div>
-            <div id="report-compare-diff" style="text-align:center; font-size:13px; margin-top:6px; color:#888;"></div>
-            <h4 style="margin:16px 0 8px;">최근 7일</h4>
-            <div id="report-weekly-body"></div>
-            
-            <div class="report-month-box" id="report-monthly-body" style="display: none;"></div>
-            <button onclick="closeModal()" class="btn-close">닫기</button>
-        </div>
-    </div>
-
-    <script>
-        const toDateKey = (date) => {
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            return `${y}-${m}-${d}`;
-        };
-        const parseLocalDate = (dateStr) => {
-            const [y, m, d] = dateStr.split('-').map(Number);
-            return new Date(y, m - 1, d);
-        };
-
-        // 한국 공휴일: 공개 API 데이터를 연도별로 저장해 다시 방문할 때도 표시합니다.
-        const holidayCache = new Map();
-        const holidayRequests = new Map();
-        const holidayErrors = new Set();
-        let calendarMonth = null;
-        function getHoliday(dateKey) { return (holidayCache.get(Number(dateKey.slice(0, 4))) || {})[dateKey] || ''; }
-        async function loadHolidays(year) {
-            if (holidayCache.has(year)) return;
-            if (holidayRequests.has(year)) return holidayRequests.get(year);
-            const request = (async () => {
-                const cacheKey = `mjin-holidays-KR-${year}`;
-                try {
-                    const stored = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-                    if (stored && stored.savedAt && Date.now() - stored.savedAt < 7 * 86400000 && stored.days) {
-                        holidayCache.set(year, stored.days);
-                        renderHolidayViews();
-                        return;
-                    }
-                } catch (_) { /* 저장소 사용이 제한된 경우 온라인으로 조회 */ }
-                try {
-                    const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/KR`);
-                    if (!response.ok) throw new Error('공휴일 조회 실패');
-                    const entries = await response.json();
-                    const days = {};
-                    for (const entry of entries) {
-                        if (entry.global !== false && Array.isArray(entry.types) && entry.types.indexOf('Public') !== -1) {
-                            days[entry.date] = entry.localName || entry.name;
-                        }
-                    }
-                    holidayCache.set(year, days);
-                    holidayErrors.delete(year);
-                    try { localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), days })); } catch (_) { /* 저장소가 가득 차도 표시 */ }
-                } catch (_) {
-                    // 이전에 저장된 데이터가 있다면 연결 오류에도 활용합니다.
-                    try { holidayCache.set(year, (JSON.parse(localStorage.getItem(cacheKey) || 'null') || {}).days || {}); }
-                    catch (_) { holidayCache.set(year, {}); }
-                    holidayErrors.add(year);
-                }
-                renderHolidayViews();
-            })();
-            holidayRequests.set(year, request);
-            try { await request; } finally { holidayRequests.delete(year); }
-        }
-        function renderHolidayViews() {
-            if (isInitialized) { renderDayStrip(); renderSelectedHoliday(); }
-            if (calendarMonth && document.getElementById('calendar-modal').style.display === 'flex') renderCalendar();
-        }
-        function renderSelectedHoliday() {
-            const label = document.getElementById('selected-holiday');
-            if (!label) return;
-            const name = getHoliday(selectedDate);
-            label.hidden = !name;
-            label.textContent = name ? `🇰🇷 ${name} · 공휴일` : '';
-        }
-        function openCalendar() {
-            calendarMonth = new Date(parseLocalDate(selectedDate).getFullYear(), parseLocalDate(selectedDate).getMonth(), 1);
-            document.getElementById('calendar-modal').style.display = 'flex';
-            renderCalendar();
-        }
-        function closeCalendar() { document.getElementById('calendar-modal').style.display = 'none'; }
-        function changeCalendarMonth(delta) {
-            calendarMonth.setMonth(calendarMonth.getMonth() + delta);
-            renderCalendar();
-        }
-        function chooseCalendarDate(dateKey) { selectedDate = dateKey; closeCalendar(); render(); }
-        function renderCalendar() {
-            const year = calendarMonth.getFullYear(), month = calendarMonth.getMonth();
-            document.getElementById('calendar-title').textContent = `${year}년 ${month + 1}월`;
-            const grid = document.getElementById('calendar-grid');
-            grid.innerHTML = '';
-            const firstWeekday = new Date(year, month, 1).getDay();
-            for (let i = 0; i < firstWeekday; i++) grid.appendChild(document.createElement('span'));
-            const days = new Date(year, month + 1, 0).getDate();
-            for (let day = 1; day <= days; day++) {
-                const key = toDateKey(new Date(year, month, day));
-                const holiday = getHoliday(key);
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = `calendar-day${holiday ? ' holiday' : ''}${key === selectedDate ? ' selected' : ''}${(firstWeekday + day - 1) % 7 === 0 ? ' sunday' : ''}`;
-                button.setAttribute('aria-label', `${key}${holiday ? ` ${holiday} 공휴일` : ''}`);
-                const number = document.createElement('strong'); number.textContent = day;
-                const name = document.createElement('small'); name.textContent = holiday;
-                button.appendChild(number);
-                button.appendChild(name);
-                button.onclick = () => chooseCalendarDate(key);
-                grid.appendChild(button);
-            }
-            document.getElementById('holiday-status').textContent = holidayErrors.has(year) ? '공휴일을 불러오지 못했습니다. 연결 후 다시 열어주세요.' : holidayCache.has(year) ? '' : '공휴일을 불러오는 중...';
-            loadHolidays(year);
-        }
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCRUUURJjH1r5YPe4lZdmZgWDehALSn43I",
-            authDomain: "mjin-today.firebaseapp.com",
-            databaseURL: "https://mjin-today-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "mjin-today",
-            storageBucket: "mjin-today.firebasestorage.app",
-            messagingSenderId: "739442717844",
-            appId: "1:739442717844:web:86c5339f16f4e198d43081"
-        };
-        const SYNC_PATH = "mjin_daily_data";
-
-        const LOCAL_KEY = 'mjin_daily_data_local_v1';
-        const PENDING_KEY = 'mjin_daily_data_pending_v1';
-        let dbRef = null;
-        let db = {}, fixedAcc = [], fixedTodo = [], memos = [];
-        let realToday = toDateKey(new Date());
-        let selectedDate = realToday;
-        let isInitialized = true;
-        let receivedRemote = false;
-        let pending = {};
-        let flushing = false;
-
-        // Firebase에서 빈 칸이 생긴 배열은 객체로 돌아올 수 있습니다.
-        function asList(value) {
-            if (Array.isArray(value)) return value.filter(item => item != null);
-            if (value && typeof value === 'object') return Object.values(value).filter(item => item != null);
-            return [];
-        }
-        function copyData(value) { return JSON.parse(JSON.stringify(value)); }
-        function normalizeDays() {
-            if (!db || typeof db !== 'object') db = {};
-            for (const key of Object.keys(db)) {
-                if (!db[key] || typeof db[key] !== 'object') { delete db[key]; continue; }
-                db[key].acc = asList(db[key].acc);
-                db[key].todo = asList(db[key].todo);
-                db[key].done = asList(db[key].done).map(String);
-            }
-        }
-        function setSyncStatus(message) { document.getElementById('sync-status').textContent = message; }
-        function storeLocal() {
-            try {
-                localStorage.setItem(LOCAL_KEY, JSON.stringify({ db, fixedAcc, fixedTodo, memos }));
-                localStorage.setItem(PENDING_KEY, JSON.stringify(pending));
-            } catch (_) { setSyncStatus('⚠️ 저장 공간 확인 필요'); }
-        }
-        function loadLocal() {
-            try {
-                const data = JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null');
-                if (data) {
-                    db = data.db || {};
-                    fixedAcc = asList(data.fixedAcc);
-                    fixedTodo = asList(data.fixedTodo);
-                    memos = asList(data.memos);
-                }
-                normalizeDays();
-                pending = JSON.parse(localStorage.getItem(PENDING_KEY) || '{}') || {};
-            } catch (_) { pending = {}; }
-            document.getElementById('loading-overlay').style.display = 'none';
-            setSyncStatus('💾 이 브라우저에 저장');
-            render();
-        }
-        async function flushPending() {
-            if (!dbRef || flushing || !receivedRemote) return;
-            flushing = true;
-            try {
-                while (Object.keys(pending).length) {
-                    const [path, payload] = Object.entries(pending)[0];
-                    await (path === 'all' ? dbRef : dbRef.child(path)).set(payload);
-                    // 저장 중 같은 항목이 다시 바뀌었으면 새 값도 전송합니다.
-                    if (pending[path] === payload) delete pending[path];
-                    storeLocal();
-                }
-                setSyncStatus('✅ 동기화됨');
-            } catch (error) {
-                console.error('데이터 동기화 실패:', error);
-                setSyncStatus('💾 기기에 저장됨 · 동기화 대기');
-            } finally { flushing = false; }
-        }
-        function connectFirebase() {
-            if (dbRef) return;
-            if (!window.firebase || !firebase.database) {
-                setSyncStatus('💾 기기에 저장됨 · 연결 대기');
-                return;
-            }
-            try {
-                firebase.initializeApp(firebaseConfig);
-                dbRef = firebase.database().ref(SYNC_PATH);
-                dbRef.on('value', (snapshot) => {
-                    receivedRemote = true;
-                    if (Object.keys(pending).length) { flushPending(); return; }
-                    const data = snapshot.val();
-                    db = (data && data.db) || {};
-                    fixedAcc = asList(data && data.fixedAcc);
-                    fixedTodo = asList(data && data.fixedTodo);
-                    memos = asList(data && data.memos);
-                    normalizeDays();
-                    storeLocal();
-                    setSyncStatus('✅ 동기화됨');
-                    render();
-                }, (error) => {
-                    console.error('Firebase 연결 실패:', error);
-                    setSyncStatus('💾 기기에 저장됨 · 연결 오류');
-                });
-            } catch (error) {
-                console.error('Firebase 초기화 실패:', error);
-                setSyncStatus('💾 기기에 저장됨 · 연결 오류');
-            }
-        }
-
-        function ensureDay(dateStr) {
-            if (!db[dateStr]) {
-                db[dateStr] = { acc: [], todo: [], done: [], msg: "", accOverrides: {}, todoOverrides: {} };
-            } else {
-                db[dateStr].acc = asList(db[dateStr].acc);
-                db[dateStr].todo = asList(db[dateStr].todo);
-                db[dateStr].done = asList(db[dateStr].done).map(String);
-                if (!db[dateStr].accOverrides) db[dateStr].accOverrides = {};
-                if (!db[dateStr].todoOverrides) db[dateStr].todoOverrides = {};
-            }
-            return db[dateStr];
-        }
-
-        function save(scope) {
-            if (!isInitialized) return;
-            let path, payload;
-            if (scope === 'day') { path = 'db/' + selectedDate; payload = copyData(db[selectedDate]); }
-            else if (scope === 'fixedAcc') { path = 'fixedAcc'; payload = copyData(fixedAcc); }
-            else if (scope === 'fixedTodo') { path = 'fixedTodo'; payload = copyData(fixedTodo); }
-            else if (scope === 'memos') { path = 'memos'; payload = copyData(memos); }
-            else { path = 'all'; payload = copyData({ db, fixedAcc, fixedTodo, memos }); pending = {}; }
-            pending[path] = payload;
-            storeLocal();
-            setSyncStatus(dbRef ? '💾 저장됨 · 동기화 중' : '💾 기기에 저장됨 · 연결 대기');
-            flushPending();
-        }
-
-        // --- 메모 기능 ---
-        function addMemo() {
-            const input = document.getElementById('memo-input');
-            const text = input.value.trim();
-            if (!text) return;
-            const newMemo = {
-                id: Date.now(),
-                text: text,
-                date: new Date().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-            };
-            memos.unshift(newMemo);
-            save('memos');
-            input.value = '';
-            render();
-        }
-
-        function removeMemo(id) {
-            if (!confirm('삭제하시겠습니까?')) return;
-            memos = memos.filter(m => m.id !== id);
-            save('memos');
-            render();
-        }
-
-        // [추가] 메모 수정 함수
-        function editMemo(id) {
-            const memoIndex = memos.findIndex(m => m.id === id);
-            if (memoIndex === -1) return;
-
-            const newText = prompt("메모를 수정하세요:", memos[memoIndex].text);
-            if (newText !== null && newText.trim() !== "") {
-                memos[memoIndex].text = newText.trim();
-                // 수정 시 날짜 뒤에 (수정됨) 표시
-                const now = new Date().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                memos[memoIndex].date = now + " (수정됨)";
-                save('memos');
-                render();
-            }
-        }
-
-        function render() {
-            if (!isInitialized) return;
-            ensureDay(selectedDate);
-
-            document.getElementById('current-focus-date').innerText = selectedDate.replace(/-/g, '.');
-            document.getElementById('daily-msg-text').innerText = getEffectiveMsg(selectedDate);
-            renderDayStrip();
-            renderSelectedHoliday();
-
-            const dayOfWeek = parseLocalDate(selectedDate).getDay();
-            const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
-
-            // 1. 가계부
-            const accList = document.getElementById('acc-list'); accList.innerHTML = '';
-            let dayTotal = 0;
-            const accOverrides = db[selectedDate].accOverrides || {};
-            const activeFixedAcc = fixedAcc.filter(i => i.fixedPeriod === 'weekday' ? isWeekday : true)
-                .map(i => accOverrides[i.id] ? { ...i, ...accOverrides[i.id], isOverridden: true } : i);
-            const sortedAcc = [...activeFixedAcc, ...db[selectedDate].acc].sort((a, b) => b.id - a.id);
-            sortedAcc.forEach(i => {
-                dayTotal += i.amount;
-                accList.innerHTML += `<li class="list-item"><div class="item-info"><small>${i.category} ${i.isFixed ? '(고정)' : ''}${i.isOverridden ? ' <span class="ov-badge">✎수정됨</span>' : ''}</small><div class="name">${i.desc}</div></div><div class="amount-area"><span>${i.amount.toLocaleString()}원</span><button class="btn-icon-del" onclick="removeAcc(${i.isFixed}, ${i.id})">🗑️</button></div></li>`;
-            });
-            document.getElementById('day-expense').innerText = dayTotal.toLocaleString() + "원";
-
-            // 2. 할 일
-            const todoList = document.getElementById('todo-list'); todoList.innerHTML = '';
-            const todoOverrides = db[selectedDate].todoOverrides || {};
-            const activeFixedTodo = fixedTodo.filter(i => i.fixedPeriod === 'weekday' ? isWeekday : true)
-                .map(i => todoOverrides[i.id] ? { ...i, ...todoOverrides[i.id], isOverridden: true } : i);
-            const sortedTodo = [...activeFixedTodo, ...db[selectedDate].todo].sort((a, b) => b.time.localeCompare(a.time) || b.id - a.id);
-            let pendingCount = 0;
-            sortedTodo.forEach(t => {
-                const isDone = (db[selectedDate].done || []).includes(String(t.id));
-                if (!isDone) pendingCount++;
-                todoList.innerHTML += `<li class="list-item ${isDone ? 'done' : ''}"><div class="todo-item" onclick="toggleTodo('${t.id}')"><div class="t-icon"></div><div class="item-info"><small>${t.time} ${t.isFixed ? '(반복)' : ''}</small><div class="name">${t.text}</div></div></div><button class="btn-icon-del" onclick="removeTodo(${t.isFixed}, ${t.id})">🗑️</button></li>`;
-            });
-            document.getElementById('day-todo-count').innerText = pendingCount + "개";
-
-            // 3. 메모 렌더링 (수정 버튼 및 이벤트 추가)
-            const memoList = document.getElementById('memo-list'); memoList.innerHTML = '';
-            memos.forEach(m => {
-                memoList.innerHTML += `
-                    <li class="list-item memo-item">
-                        <div class="memo-header">
-                            <div class="memo-text" onclick="editMemo(${m.id})">${m.text}</div>
-                            <div class="memo-btns">
-                                <button class="btn-icon-edit" onclick="editMemo(${m.id})">✏️</button>
-                                <button class="btn-icon-del" onclick="removeMemo(${m.id})">🗑️</button>
-                            </div>
-                        </div>
-                        <div class="memo-date">${m.date}</div>
-                    </li>`;
-            });
-        }
-
-        function getEffectiveMsg(dateStr) {
-            if (db[dateStr] && db[dateStr].msg) return db[dateStr].msg;
-            const pastDates = Object.keys(db).filter(d => d < dateStr && db[d].msg).sort().reverse();
-            return pastDates.length > 0 ? db[pastDates[0]].msg : "오늘의 한마디를 입력해보세요.";
-        }
-
-        function getDayTodoCount(dateKey) {
-            const day = db[dateKey] || {};
-            const weekday = parseLocalDate(dateKey).getDay();
-            const isWeekday = weekday >= 1 && weekday <= 5;
-            const repeats = asList(fixedTodo).filter(item => item.fixedPeriod !== 'weekday' || isWeekday);
-            return asList(day.todo).length + repeats.length;
-        }
-
-        function renderDayStrip() {
-            const strip = document.getElementById('day-strip'); strip.innerHTML = '';
-            let d = parseLocalDate(selectedDate); d.setDate(d.getDate() - d.getDay());
-            for (let i = 0; i < 7; i++) {
-                const dK = toDateKey(d);
-                const item = document.createElement('div');
-                const holiday = getHoliday(dK);
-                item.className = `strip-item ${dK === selectedDate ? 'active' : ''} ${holiday ? 'holiday' : ''} ${d.getDay() === 0 ? 'sunday' : ''}`;
-                const todoCount = getDayTodoCount(dK);
-                item.title = [holiday, todoCount ? `할 일 ${todoCount}개` : ''].filter(Boolean).join(' · ');
-                item.setAttribute('aria-label', `${dK}${holiday ? ` ${holiday} 공휴일` : ''}${todoCount ? ` 할 일 ${todoCount}개` : ''}`);
-                item.innerHTML = `<span>${['일', '월', '화', '수', '목', '금', '토'][d.getDay()]}</span><strong>${d.getDate()}</strong><span class="strip-indicators" aria-hidden="true">${holiday ? '<i class="holiday-dot"></i>' : ''}${todoCount ? '<i class="todo-dot"></i>' : ''}</span>`;
-                item.onclick = () => { selectedDate = dK; render(); };
-                strip.appendChild(item);
-                d.setDate(d.getDate() + 1);
-            }
-            loadHolidays(parseLocalDate(selectedDate).getFullYear());
-            loadHolidays(parseLocalDate(selectedDate).getFullYear() + (parseLocalDate(selectedDate).getMonth() === 11 ? 1 : 0));
-            if (parseLocalDate(selectedDate).getMonth() === 0) loadHolidays(parseLocalDate(selectedDate).getFullYear() - 1);
-        }
-
-        function setToday() { realToday = toDateKey(new Date()); selectedDate = realToday; render(); }
-        function moveDay(v) { let d = parseLocalDate(selectedDate); d.setDate(d.getDate() + v); selectedDate = toDateKey(d); render(); }
-        function editDailyMsg() { ensureDay(selectedDate); const n = prompt(`한마디 수정`, getEffectiveMsg(selectedDate)); if (n !== null) { db[selectedDate].msg = n; save('day'); render(); } }
-        function toggleTodo(id) {
-            ensureDay(selectedDate);
-            if (!db[selectedDate].done) db[selectedDate].done = [];
-            const idx = db[selectedDate].done.indexOf(String(id));
-            if (idx > -1) db[selectedDate].done.splice(idx, 1); else db[selectedDate].done.push(String(id));
-            save('day'); render();
-        }
-        function addDailyEntry() {
-            ensureDay(selectedDate);
-            const d = document.getElementById('acc-desc'), a = document.getElementById('acc-amount'), c = document.getElementById('acc-cat'), f = document.getElementById('acc-fixed'), p = document.getElementById('acc-fixed-period');
-            if (!d.value || !a.value) return;
-            const newItem = { id: Date.now(), category: c.value, desc: d.value, amount: parseInt(a.value), isFixed: f.checked, fixedPeriod: p.value };
-            if (f.checked) fixedAcc.push(newItem); else db[selectedDate].acc.push(newItem);
-            save(f.checked ? 'fixedAcc' : 'day'); render(); d.value = ''; a.value = ''; f.checked = false;
-        }
-        function addDailyTodo() {
-            ensureDay(selectedDate);
-            const i = document.getElementById('todo-input'), t = document.getElementById('todo-time'), r = document.getElementById('todo-repeat'), p = document.getElementById('todo-repeat-period');
-            if (!i.value) return;
-            const newItem = { id: Date.now(), time: t.value, text: i.value, isFixed: r.checked, fixedPeriod: p.value };
-            if (r.checked) fixedTodo.push(newItem); else db[selectedDate].todo.push(newItem);
-            save(r.checked ? 'fixedTodo' : 'day'); render(); i.value = ''; r.checked = false;
-        }
-        function removeAcc(f, id) { ensureDay(selectedDate); if (f) fixedAcc = fixedAcc.filter(x => x.id !== id); else db[selectedDate].acc = db[selectedDate].acc.filter(x => x.id !== id); save(f ? 'fixedAcc' : 'day'); render(); }
-        function removeTodo(f, id) { ensureDay(selectedDate); if (f) fixedTodo = fixedTodo.filter(x => x.id !== id); else db[selectedDate].todo = db[selectedDate].todo.filter(x => x.id !== id); save(f ? 'fixedTodo' : 'day'); render(); }
-        function switchTab(t, button) { document.querySelectorAll('.m-tab').forEach(b => b.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); button.classList.add('active'); document.getElementById('section-' + t).classList.add('active'); }
-        function closeModal() { document.getElementById('report-modal').style.display = 'none'; }
-        function resetAllData() { if (confirm('정말로 모든 데이터를 삭제하시겠습니까?')) { db = {}; fixedAcc = []; fixedTodo = []; memos = []; save(); render(); } }
-
-        function getDayFixedTotal(dateStr) {
-            const d = parseLocalDate(dateStr); const isWeekday = d.getDay() >= 1 && d.getDay() <= 5;
-            const ov = (db[dateStr] && db[dateStr].accOverrides) || {};
-            return fixedAcc.filter(i => i.fixedPeriod === 'weekday' ? isWeekday : true).reduce((s, i) => s + (ov[i.id] ? ov[i.id].amount : i.amount), 0);
-        }
-        function getMonthlyTotal(monthStr) {
-            const [y, m] = monthStr.split('-').map(Number); const lastDay = new Date(y, m, 0).getDate(); let t = 0;
-            for (let i = 1; i <= lastDay; i++) {
-                const dK = `${y}-${String(m).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-                t += getDayFixedTotal(dK); if (db[dK]) t += (db[dK].acc || []).reduce((a, b) => a + b.amount, 0);
-            }
-            return t;
-        }
-        function showReport() {
-            const weeklyBody = document.getElementById('report-weekly-body'), monthlyBody = document.getElementById('report-monthly-body'), compBody = document.getElementById('report-compare-body');
-            const thisM = realToday.substring(0, 7);
-            const lastM = (() => { const [y, m] = thisM.split('-').map(Number); const d = new Date(y, m - 2, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
-            const thisT = getMonthlyTotal(thisM), lastT = getMonthlyTotal(lastM);
-            compBody.innerHTML = `<div style="flex:1;text-align:center;padding:10px;background:rgba(0,0,0,0.03);border-radius:10px;"><div class="month-info-sub">${thisM}</div><div class="month-main-val">${thisT.toLocaleString()}원</div></div><div style="flex:1;text-align:center;padding:10px;background:rgba(0,0,0,0.03);border-radius:10px;"><div class="month-info-sub">${lastM}</div><div class="month-main-val">${lastT.toLocaleString()}원</div></div>`;
-            const diff = thisT - lastT; document.getElementById('report-compare-diff').innerText = diff === 0 ? '지난달과 같아요' : (diff > 0 ? `지난달보다 ${diff.toLocaleString()}원 더 썼어요` : `지난달보다 ${Math.abs(diff).toLocaleString()}원 덜 썼어요`);
-            weeklyBody.innerHTML = ''; for (let i = 0; i < 7; i++) { const d = new Date(); d.setDate(d.getDate() - i); const dK = toDateKey(d); let val = getDayFixedTotal(dK); if (db[dK]) val += (db[dK].acc || []).reduce((a, b) => a + b.amount, 0); weeklyBody.innerHTML += `<div class="report-row"><span>${dK.substring(5)}</span><strong>${val.toLocaleString()}원</strong></div>`; }
-            const months = [...new Set([...Object.keys(db).map(k => k.substring(0, 7)), thisM])].sort().reverse();
-            monthlyBody.innerHTML = ''; months.forEach(m => { const t = getMonthlyTotal(m); monthlyBody.innerHTML += `<div class="report-row_ ${m === thisM ? 'current-month' : ''}"><span>${m}${m === thisM ? ' (이번달)' : ''}</span><strong>${t.toLocaleString()}원</strong></div>`; });
-            document.getElementById('report-modal').style.display = 'flex';
-        }
-
-        document.getElementById('theme-toggle').addEventListener('click', () => {
-            document.body.classList.toggle('dark-mode');
-            document.getElementById('theme-toggle').innerText = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
-        });
-
-        loadLocal();
-        connectFirebase();
-        window.addEventListener('load', () => { if (!dbRef) connectFirebase(); });
-        window.addEventListener('online', () => {
-            if (!dbRef) connectFirebase();
-            else flushPending();
-        });
-
-        setInterval(() => {
-            const now = toDateKey(new Date());
-            if (now !== realToday) {
-                realToday = now;
-                if (selectedDate === realToday) render();
-            }
-        }, 60000);
-    </script>
-</body>
-
-</html>
+/* 주간 날짜줄: 공휴일과 할 일 표시 */
+.strip-item .strip-indicators { display: flex; justify-content: center; align-items: center; gap: 3px; height: 4px; margin: 3px 0 0; }
+.strip-indicators .holiday-dot, .strip-indicators .todo-dot { display: block; width: 4px; height: 4px; border-radius: 50%; margin: 0; flex-shrink: 0; }
+.strip-indicators .todo-dot { background: #929292; }
+body.dark-mode .strip-indicators .todo-dot { background: #aaa; }
